@@ -1004,7 +1004,9 @@ export function NoticeDetail({
               ? 'DEMO NOTICE'
               : n.provenance?.method === 'file-import'
                 ? 'FILE IMPORT · UNVERIFIED'
-                : 'OFFICIAL API · UNREVIEWED'}
+                : n.provenance?.method === 'web'
+                  ? 'OFFICIAL BOARD · UNREVIEWED'
+                  : 'OFFICIAL API · UNREVIEWED'}
           </p>
           <h2>{n.title}</h2>
         </div>

@@ -36,7 +36,10 @@ export function summarizeQuality(notices: Notice[]): QualitySummary {
   const collected = notices.filter((n) => !n.isDemo);
   return {
     total: collected.length,
-    apiCount: collected.filter((n) => n.provenance?.method !== 'file-import').length,
+    apiCount: collected.filter(
+      (n) => n.provenance?.method !== 'file-import' && n.provenance?.method !== 'web',
+    ).length,
+    webCount: collected.filter((n) => n.provenance?.method === 'web').length,
     importedCount: collected.filter((n) => n.provenance?.method === 'file-import').length,
     needsReview: collected.filter((n) => n.quality?.length).length,
     missingSchedule: collected.filter((n) => !n.starts || !n.deadline).length,

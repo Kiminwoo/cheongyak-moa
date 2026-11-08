@@ -3,7 +3,7 @@ export type HousingOwned = 'yes' | 'no' | 'unknown';
 export type View = 'matching' | 'all' | 'calendar' | 'favorites' | 'sources';
 export type MatchStatus = 'review' | 'missing' | 'ineligible' | 'demo-match';
 export type NoticeStage = 'open' | 'upcoming' | 'closed' | 'unknown' | 'cancelled';
-export type CollectionMethod = 'api' | 'file-import';
+export type CollectionMethod = 'api' | 'web' | 'file-import';
 export type ApiSource = 'applyhome' | 'lh' | 'sh' | 'gh' | 'local';
 export type Environment = Record<string, string | undefined>;
 
@@ -35,7 +35,8 @@ export interface QualityIssue {
 }
 export interface Notice {
   issuerName?: string;
-  provider?: 'myhome';
+  provider?: 'myhome' | 'sh-board' | 'gh-board';
+  publicationDate?: string;
   withdrawnFromProvider?: boolean;
   pricing?: {
     operation: string;
@@ -153,6 +154,7 @@ export interface SourceInfo {
   count: number;
 }
 export interface QualitySummary {
+  webCount: number;
   total: number;
   apiCount: number;
   importedCount: number;

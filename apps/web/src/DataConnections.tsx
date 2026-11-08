@@ -7,6 +7,7 @@ import { dateTime } from './lib.js';
 export default function DataConnections({
   data,
   onCollect,
+  onBoards,
   onRefresh,
   onImport,
   onSetup,
@@ -15,6 +16,7 @@ export default function DataConnections({
 }: {
   data: BootstrapData;
   onCollect: () => void;
+  onBoards?: () => void;
   onRefresh: () => void;
   onImport: (payload: ImportInput) => Promise<void>;
   onSetup: () => void;
@@ -118,6 +120,7 @@ export default function DataConnections({
         <div className="quality-grid" aria-label="데이터 품질 현황">
           {[
             ['API 수집', quality.apiCount],
+            ['공식 게시판', quality.webCount],
             ['파일 가져오기', quality.importedCount],
             ['확인할 공고', quality.needsReview],
             ['접수일 미확인', quality.missingSchedule],
@@ -144,9 +147,7 @@ export default function DataConnections({
           </thead>
           <tbody>
             {data.sources.map((s) => {
-              const latest = data.runs.find(
-                (r) => r.sourceId === s.id && r.method !== 'file-import',
-              );
+              const latest = data.runs.find((r) => r.sourceId === s.id && r.method === 'api');
               const status =
                 s.status === 'planned'
                   ? '연동 예정'
@@ -164,6 +165,10 @@ export default function DataConnections({
               const imported = data.notices.filter(
                 (n) => !n.isDemo && n.sourceId === s.id && n.provenance?.method === 'file-import',
               ).length;
+              const web = data.notices.filter(
+                (n) => !n.isDemo && n.sourceId === s.id && n.provenance?.method === 'web',
+              ).length;
+              const boardRun = data.runs.find((r) => r.sourceId === s.id && r.method === 'web');
               return (
                 <tr key={s.id}>
                   <td>
@@ -184,9 +189,26 @@ export default function DataConnections({
                     {['sh', 'gh', 'local'].includes(s.id) && (
                       <small>수집 경로: 마이홈 API · 기관명 분류</small>
                     )}
+                    {boardRun && (
+                      <small>
+                        게시판:{' '}
+                        {boardRun.errorCode === 'robots_denied'
+                          ? '기관 자동 수집 제한'
+                          : boardRun.status === 'success'
+                            ? '수집 완료'
+                            : boardRun.status === 'running'
+                              ? '수집 중'
+                              : '수집 실패'}
+                        {' · '}
+                        {boardRun.message}
+                      </small>
+                    )}
                   </td>
                   <td>
-                    API {s.count - imported}건<small>파일 {imported}건</small>
+                    API {s.count - imported - web}건
+                    <small>
+                      게시판 {web}건 · 파일 {imported}건
+                    </small>
                   </td>
                 </tr>
               );
@@ -201,7 +223,16 @@ export default function DataConnections({
         <button className="secondary" disabled={disabled} onClick={onRefresh}>
           상태 새로고침
         </button>
+        {onBoards && (
+          <button className="secondary" disabled={disabled} onClick={onBoards}>
+            SH·GH 게시판 수집
+          </button>
+        )}
       </div>
+      <p className="helper">
+        게시판은 기관의 자동 접근 정책을 먼저 확인합니다. 제한된 기관은 수집하지 않으며,
+        첨부파일에만 있는 일정·금액은 미확인으로 표시합니다.
+      </p>
       <details className="detail-section">
         <summary>응답 JSON 파일 가져오기</summary>
         <p>
@@ -251,10 +282,14 @@ export default function DataConnections({
       {data.runs.length ? (
         data.runs.map((r) => (
           <div className="run" key={r.id}>
-            <strong>{r.sourceId === 'applyhome' ? '청약홈' : 'LH'}</strong>
+            <strong>{data.sources.find((s) => s.id === r.sourceId)?.name || r.sourceId}</strong>
             <span>
-              {r.method === 'file-import' ? '파일 가져오기' : 'API 수집'} ·{' '}
-              {{ running: '진행 중', success: '완료', failed: '실패' }[r.status] || r.status} ·{' '}
+              {r.method === 'file-import'
+                ? '파일 가져오기'
+                : r.method === 'web'
+                  ? '공식 게시판'
+                  : 'API 수집'}{' '}
+              · {{ running: '진행 중', success: '완료', failed: '실패' }[r.status] || r.status} ·{' '}
               {r.count}건 처리
             </span>
             <small>

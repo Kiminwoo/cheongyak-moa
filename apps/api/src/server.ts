@@ -10,6 +10,7 @@ import { matchNotice, validateProfile, koreaToday, REGIONS } from '@cheongyak-mo
 import { collect } from './core/collectors.js';
 import { collectPrices } from './core/prices.js';
 import { collectLocal } from './core/local-collectors.js';
+import { collectBoards } from './core/board-collectors.js';
 import { collectionConfig } from './core/config.js';
 import { summarizeQuality } from './core/data-quality.js';
 import { IMPORT_FORMATS } from './core/normalization.js';
@@ -185,6 +186,17 @@ export function createApp({
       }
       if (req.method === 'GET' && url.pathname.startsWith('/api/versions/'))
         return send(200, store.versions(decodeURIComponent(url.pathname.slice(14))));
+      if (req.method === 'POST' && url.pathname === '/api/collect-boards') {
+        if (collecting) return send(409, { error: '수집이 이미 실행 중입니다.' });
+        collecting = true;
+        send(202, { ok: true });
+        collectBoards(store, { env, rawDir: join(projectRoot, 'data', 'raw') })
+          .catch(() => console.error('공식 게시판 수집 초기화에 실패했습니다.'))
+          .finally(() => {
+            collecting = false;
+          });
+        return;
+      }
       if (req.method === 'POST' && url.pathname === '/api/collect') {
         if (collecting) return send(409, { error: '수집이 이미 실행 중입니다.' });
         const config = collectionConfig(env);

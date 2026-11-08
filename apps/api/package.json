@@ -8,6 +8,7 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
+    "happy-dom": "^20.0.0",
     "@cheongyak-moa/contracts": "0.4.0",
     "@cheongyak-moa/domain": "0.4.0"
   }

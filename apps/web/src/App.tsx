@@ -220,6 +220,18 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
     filter('dataMode', 'live');
     setMessage(`${result.count}건을 가져왔어요. 파일 자료는 원문 미검수 상태입니다.`);
   }
+  async function collectBoards() {
+    setBusy(true);
+    try {
+      await requestFn('/api/collect-boards', { method: 'POST', body: {} });
+      await refresh();
+      setMessage('공식 게시판 수집을 시작했어요. 기관의 접근 제한은 수집 이력에 표시합니다.');
+    } catch (e) {
+      setMessage(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
   async function setupEnv() {
     setBusy(true);
     try {
@@ -333,6 +345,7 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
                   <DataConnections
                     data={data}
                     onCollect={collect}
+                    onBoards={collectBoards}
                     onRefresh={() => refresh().catch((e) => setMessage(errorMessage(e)))}
                     onImport={importData}
                     onSetup={setupEnv}

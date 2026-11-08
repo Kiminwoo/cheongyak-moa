@@ -37,14 +37,14 @@ export const sources: Omit<SourceInfo, 'configured' | 'count'>[] = [
   {
     id: 'sh',
     name: 'SH',
-    scope: '마이홈 API에 포함된 SH 공공임대 공고',
+    scope: '마이홈 공공임대·공식 게시판 주택 모집',
     status: 'adapter',
     url: 'https://www.i-sh.co.kr/',
   },
   {
     id: 'gh',
     name: 'GH',
-    scope: '마이홈 API에 포함된 GH 공공임대 공고',
+    scope: '마이홈 공공임대·게시판 접근 정책 확인',
     status: 'adapter',
     url: 'https://www.gh.or.kr/',
   },

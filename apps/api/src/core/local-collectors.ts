@@ -7,6 +7,7 @@ import { getJSON } from './collectors.js';
 import { MYHOME_URL, LOCAL_SOURCES, myhomePage, normalizeMyhome } from './myhome.js';
 import { inspectNotice } from './data-quality.js';
 import { saveRaw } from './ingestion.js';
+import { boardIdentity } from './board-collectors.js';
 
 export async function collectLocal(
   store: Store,
@@ -77,11 +78,24 @@ export async function collectLocal(
     );
     const changes = new Map<string, number>();
     store.transaction(() => {
-      for (const notice of [...active, ...terminal])
+      for (const notice of [...active, ...terminal]) {
+        const identity = boardIdentity(notice.sourceUrl, notice.sourceId);
+        if (
+          identity &&
+          store
+            .all()
+            .some(
+              (old) =>
+                old.provenance?.method === 'web' &&
+                boardIdentity(old.sourceUrl, old.sourceId) === identity,
+            )
+        )
+          continue;
         changes.set(
           notice.sourceId,
           (changes.get(notice.sourceId) ?? 0) + Number(store.writeNotice(notice)),
         );
+      }
       const present = new Set(notices.map((notice) => notice.id));
       // 현재 모집 목록 누락은 마감으로 단정하지 않고 서비스 노출만 중단합니다.
       for (const old of store.all())
