@@ -15,3 +15,9 @@ coverage/
 Thumbs.db
 public/app.js
 public/app.js.map
+apps/web/public/app.js
+apps/web/public/app.js.map
+**/dist/
+**/*.tsbuildinfo
+.test-build/
+.env.local

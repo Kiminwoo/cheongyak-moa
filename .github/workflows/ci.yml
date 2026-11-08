@@ -2,13 +2,17 @@ name: Verify application
 
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
     branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: verify-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   verify:
@@ -19,11 +23,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      # 초기 작업 환경의 네트워크 제한으로 lockfile을 아직 생성하지 못했습니다.
-      # 첫 정상 설치 후 package-lock.json을 커밋하면 npm ci로 전환합니다.
       - name: Install dependencies
+        run: npm install
+      - name: Prepare monorepo formatting and lockfile
         run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          npm run format
+          node scripts/ci-bootstrap.mjs
+      - name: Check workspace boundaries
+        run: npm run lint
+      - name: Check TypeScript
+        run: npm run typecheck
       - name: Build React application
         run: npm run build
       - name: Test API, matching, storage and PWA

@@ -1,0 +1,8 @@
+{
+  "name": "@cheongyak-moa/api",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "node ../../scripts/build.mjs api", "typecheck": "tsc -p ." },
+  "dependencies": { "@cheongyak-moa/contracts": "0.4.0", "@cheongyak-moa/domain": "0.4.0" }
+}

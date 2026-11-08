@@ -1,24 +1,42 @@
 {
-  "name": "cheongyak-moa-local",
-  "version": "0.2.0",
+  "name": "cheongyak-moa",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
-  "description": "조건으로 모아보는 청약 · 로컬 개발 버전",
+  "workspaces": ["apps/*", "packages/*"],
   "engines": { "node": ">=22.15.0" },
   "scripts": {
     "build": "node scripts/build.mjs",
+    "build:web": "node scripts/build.mjs web",
+    "build:api": "node scripts/build.mjs api",
+    "dev": "node scripts/dev.mjs",
     "prestart": "npm run build",
-    "start": "node --experimental-sqlite --env-file-if-exists=.env server.js",
-    "test": "node --experimental-sqlite --test test/*.test.js",
-    "test:ui": "node scripts/test-ui.mjs",
-    "collect": "node --experimental-sqlite --env-file-if-exists=.env scripts/collect.js"
-  },
-  "dependencies": {
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "start": "node --experimental-sqlite --env-file-if-exists=.env apps/api/dist/server.mjs",
+    "typecheck": "tsc -b && tsc -p apps/api && tsc -p apps/web",
+    "test": "node scripts/test.mjs",
+    "test:ui": "node scripts/test.mjs ui",
+    "check": "npm run typecheck && npm run build && npm test && npm run test:ui",
+    "lint": "node scripts/check-boundaries.mjs",
+    "precollect": "npm run build:api",
+    "collect": "node --experimental-sqlite --env-file-if-exists=.env apps/api/dist/cli/collect.mjs",
+    "predoctor": "npm run build:api",
+    "doctor": "node --env-file-if-exists=.env apps/api/dist/cli/doctor.mjs",
+    "presetup:env": "npm run build:api",
+    "setup:env": "node apps/api/dist/cli/setup-env.mjs",
+    "preimport:data": "npm run build:api",
+    "import:data": "node --experimental-sqlite apps/api/dist/cli/import-response.mjs",
+    "prepare": "node scripts/setup-git-hooks.mjs",
+    "format": "prettier --write apps packages scripts test *.json *.md .github .githooks",
+    "format:check": "prettier --check apps packages scripts test *.json *.md .github .githooks",
+    "commit:check": "node scripts/check-commit.mjs"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "esbuild": "^0.25.0",
-    "happy-dom": "^20.0.0"
+    "happy-dom": "^20.0.0",
+    "prettier": "^3.6.0",
+    "typescript": "^5.9.0"
   }
 }

@@ -1,0 +1,11 @@
+node_modules
+**/dist
+.test-build
+.npm-cache
+data
+.env*
+package-lock.json
+*.tsbuildinfo
+apps/web/public/app.js
+apps/web/public/app.js.map
+.githooks
