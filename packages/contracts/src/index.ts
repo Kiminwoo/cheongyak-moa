@@ -169,6 +169,7 @@ export interface BootstrapData {
   quality: QualitySummary;
 }
 export interface Filters {
+  openOnly: boolean;
   excludeMismatch: boolean;
   search: string;
   region: string;

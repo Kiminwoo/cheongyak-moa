@@ -371,9 +371,13 @@ export function Sidebar({
 export function Stats({
   notices,
   favoriteCount,
+  openOnly,
+  onOpenToggle,
 }: {
   notices: MatchedNotice[];
   favoriteCount: number;
+  openOnly: boolean;
+  onOpenToggle: () => void;
 }) {
   const entries = [
     ['살펴볼 청약', notices.length, '⌂'],
@@ -382,20 +386,37 @@ export function Stats({
   ];
   return (
     <div className="stats">
-      {entries.map(([label, count, icon], i) => (
-        <div className={`stat ${i === 1 ? 'highlight' : ''}`} key={label}>
-          <div>
-            <span className="stat-label">{label}</span>
-            <strong>
-              {count}
-              <small>건</small>
-            </strong>
+      {entries.map(([label, count, icon], i) => {
+        const content = (
+          <>
+            <div>
+              <span className="stat-label">{label}</span>
+              <strong>
+                {count}
+                <small>건</small>
+              </strong>
+            </div>
+            <span className="stat-icon" aria-hidden="true">
+              {icon}
+            </span>
+          </>
+        );
+        return i === 1 ? (
+          <button
+            key={label}
+            type="button"
+            className={`stat highlight stat-action ${openOnly ? 'selected' : ''}`}
+            aria-pressed={openOnly}
+            onClick={onOpenToggle}
+          >
+            {content}
+          </button>
+        ) : (
+          <div className="stat" key={label}>
+            {content}
           </div>
-          <span className="stat-icon" aria-hidden="true">
-            {icon}
-          </span>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -437,6 +458,15 @@ export function ListingTools({
         </select>
       </div>
       <div className="list-toolbar">
+        {filters.openOnly && (
+          <button
+            className="pill active"
+            aria-label="접수 중 필터 해제"
+            onClick={() => onFilter('openOnly', false)}
+          >
+            지금 접수 중만 보기 ×
+          </button>
+        )}
         <div className="filter-pills" aria-label="자격 점검 상태">
           {(
             [
@@ -574,11 +604,13 @@ export function NoticeCard({
 }
 
 export function EmptyState({
+  openOnly,
   live,
   view,
   onSources,
   onReset,
 }: {
+  openOnly: boolean;
   live: boolean;
   view: View;
   onSources: () => void;
@@ -590,21 +622,25 @@ export function EmptyState({
         ⌂
       </span>
       <h3>
-        {live
-          ? '공식 공고를 확인할 준비가 되었어요'
-          : view === 'favorites'
-            ? '저장한 공고가 없거나 필터 밖에 있어요'
-            : '선택한 조건의 공고가 없어요'}
+        {openOnly
+          ? '지금 접수 중인 공고가 없어요'
+          : live
+            ? '공식 공고를 확인할 준비가 되었어요'
+            : view === 'favorites'
+              ? '저장한 공고가 없거나 필터 밖에 있어요'
+              : '선택한 조건의 공고가 없어요'}
       </h3>
       <p>
-        {live
-          ? 'API 연결 상태와 수집 범위를 확인하거나 검색 필터를 넓혀보세요.'
-          : view === 'favorites'
-            ? '공고의 북마크를 눌러 저장하거나 필터를 초기화해 보세요.'
-            : '검색어와 필터를 넓혀보세요. 수집 범위 밖의 공고는 결과에 포함되지 않아요.'}
+        {openOnly
+          ? '현재 검색 조건에서 접수 중으로 확인된 공고가 없습니다. 접수 예정·일정 미확인 공고는 포함하지 않습니다.'
+          : live
+            ? 'API 연결 상태와 수집 범위를 확인하거나 검색 필터를 넓혀보세요.'
+            : view === 'favorites'
+              ? '공고의 북마크를 눌러 저장하거나 필터를 초기화해 보세요.'
+              : '검색어와 필터를 넓혀보세요. 수집 범위 밖의 공고는 결과에 포함되지 않아요.'}
       </p>
-      <button className="secondary" onClick={live ? onSources : onReset}>
-        {live ? '데이터 현황 보기' : '필터 초기화'}
+      <button className="secondary" onClick={openOnly ? onReset : live ? onSources : onReset}>
+        {openOnly ? '접수 중 필터 해제' : live ? '데이터 현황 보기' : '필터 초기화'}
       </button>
     </div>
   );

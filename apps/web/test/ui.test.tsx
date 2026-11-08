@@ -108,6 +108,30 @@ test('React 컴포넌트가 공고와 모바일 메뉴를 렌더링한다', asyn
   assert.ok(container.querySelector('.header-actions button'));
 });
 
+test('접수 중 통계 카드를 클릭하면 해당 공고만 표시하고 다시 클릭하거나 필터를 해제할 수 있다', async (t) => {
+  const { container } = await setup(t);
+  const expected = demoNotices('2026-11-08').filter(
+    (notice) => matchNotice(notice, {}, '2026-11-08').stage === 'open',
+  );
+  const card = container.querySelector('button.stat-action');
+  assert.equal(card.getAttribute('aria-pressed'), 'false');
+  const originalCount = container.querySelectorAll('.card').length;
+  await act(async () => card.click());
+  assert.equal(card.getAttribute('aria-pressed'), 'true');
+  assert.equal(container.querySelectorAll('.card').length, expected.length);
+  assert.deepEqual(
+    [...container.querySelectorAll('.card-title')].map((title) => title.textContent).sort(),
+    expected.map((notice) => notice.title).sort(),
+  );
+  assert.ok(container.querySelector('#result-count').textContent.includes(String(expected.length)));
+  await act(async () => card.click());
+  assert.equal(container.querySelectorAll('.card').length, originalCount);
+  await act(async () => card.click());
+  await act(async () => container.querySelector('[aria-label="접수 중 필터 해제"]').click());
+  assert.equal(card.getAttribute('aria-pressed'), 'false');
+  assert.equal(container.querySelectorAll('.card').length, originalCount);
+});
+
 test('수집 공고가 있으면 실제 데이터를 먼저 표시하고 선택한 예시 모드는 유지한다', async (t) => {
   const { container, w } = await setup(t, { live: true });
   assert.equal(container.querySelectorAll('.card').length, 1);

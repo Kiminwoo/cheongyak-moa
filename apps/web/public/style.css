@@ -501,6 +501,21 @@ input[type='checkbox'] {
   background: #edf3e6;
   border-color: #e0e8d5;
 }
+.stat-action {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+}
+.stat-action:hover,
+.stat-action.selected {
+  border-color: #68804d;
+}
+.stat-action:focus-visible {
+  outline: 2px solid #52634c;
+  outline-offset: 3px;
+}
 .search-row {
   display: flex;
   gap: 10px;

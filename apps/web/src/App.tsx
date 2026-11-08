@@ -247,7 +247,7 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
     [data, filters, view],
   );
   const statsNotices = useMemo(
-    () => (data ? selectNotices(data.notices, filters, view, { status: false }) : []),
+    () => (data ? selectNotices(data.notices, filters, view, { status: false, stage: false }) : []),
     [data, filters, view],
   );
   const favoriteCount = data?.notices.filter((n) => n.favorite).length || 0;
@@ -316,7 +316,19 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
                   </div>
                   <span className="today">{data.today.replaceAll('-', '.')} 기준</span>
                 </div>
-                <Stats notices={statsNotices} favoriteCount={favoriteCount} />
+                <Stats
+                  notices={statsNotices}
+                  favoriteCount={favoriteCount}
+                  openOnly={filters.openOnly}
+                  onOpenToggle={() => {
+                    if (view === 'sources' || view === 'calendar') setView('matching');
+                    setFilters((current) => ({
+                      ...current,
+                      openOnly: !current.openOnly,
+                      status: '',
+                    }));
+                  }}
+                />
                 {view === 'sources' ? (
                   <DataConnections
                     data={data}
@@ -332,7 +344,7 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
                     month={month || data.today.slice(0, 7)}
                     onMonth={setMonth}
                     today={data.today}
-                    notices={statsNotices}
+                    notices={selectNotices(data.notices, filters, view, { status: false })}
                     onDetail={(id) => setModal({ type: 'detail', id })}
                   />
                 ) : (
@@ -358,10 +370,11 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
                         ))
                       ) : (
                         <EmptyState
+                          openOnly={filters.openOnly}
                           live={filters.dataMode === 'live'}
                           view={view}
                           onSources={() => navigate('sources')}
-                          onReset={reset}
+                          onReset={filters.openOnly ? () => filter('openOnly', false) : reset}
                         />
                       )}
                     </div>

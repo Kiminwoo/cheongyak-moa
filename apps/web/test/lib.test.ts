@@ -46,6 +46,21 @@ test('미확인 마감일은 임박순 정렬 뒤에 남는다', () => {
   assert.equal(deadlineText(missing, today), '접수일 원문 확인');
 });
 
+test('접수 중 필터는 마감 포함 여부와 관계없이 예정·마감·취소·미확인 일정을 제외한다', () => {
+  const input = ['open', 'upcoming', 'closed', 'cancelled', 'unknown'].map((stage) => ({
+    ...notices[0],
+    id: stage,
+    match: { ...notices[0].match, stage },
+  }));
+  const filters = { ...defaultFilters, openOnly: true, includeClosed: true };
+  assert.deepEqual(
+    selectNotices(input, filters, 'matching').map((notice) => notice.id),
+    ['open'],
+  );
+  assert.equal(selectNotices(input, filters, 'matching', { stage: false }).length, 5);
+  assert.equal(selectNotices(input, { ...filters, region: '제주' }, 'matching').length, 0);
+});
+
 test('선호 불일치 제외는 미확인 공고를 숨기지 않고 추천순은 불일치를 뒤로 보낸다', () => {
   const profile = { regions: ['서울'] };
   const input = ['제주', '전국', '서울'].map((region) => {
