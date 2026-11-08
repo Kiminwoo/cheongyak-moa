@@ -1,10 +1,57 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync,rmSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Store } from '../src/core/store.js';
 import { demoNotices } from '../src/core/demo.js';
-test('재수집은 중복 생성하지 않고 변경 시 새 버전을 보존한다',()=>{const s=new Store(':memory:',{seed:false});try{const n=demoNotices('2026-11-08')[0];assert.equal(s.upsert(n),true);assert.equal(s.upsert(n),false);assert.equal(s.all().length,1);assert.equal(s.versions(n.id).length,1);s.upsert({...n,deadline:'2026-12-01'});assert.equal(s.versions(n.id).length,2);assert.equal(s.versions(n.id)[1].body.deadline,n.deadline);}finally{s.close();}});
-test('재실행 후 조건·관심 공고가 유지되고 삭제 시 공고는 남는다',()=>{const folder=mkdtempSync(join(tmpdir(),'moa-store-')),path=join(folder,'test.sqlite');let s;try{s=new Store(path);const id=s.all()[0].id;s.saveProfile({regions:['서울']});s.favorite(id,true);s.close();s=new Store(path);assert.deepEqual(s.profile(),{regions:['서울']});assert.equal(s.get(id).favorite,true);const count=s.all().length;s.erasePersonal();assert.deepEqual(s.profile(),{});assert.equal(s.get(id).favorite,false);assert.equal(s.all().length,count);}finally{s?.close();rmSync(folder,{recursive:true,force:true});}});
-test('수집 실패 이력과 처리 건수를 보관한다',()=>{const s=new Store(':memory:',{seed:false});try{const id=s.beginRun('lh');s.finishRun(id,'failed',3,'재시도 필요');assert.equal(s.runs()[0].status,'failed');assert.equal(s.runs()[0].count,3);assert.ok(s.runs()[0].endedAt);}finally{s.close();}});
+test('재수집은 중복 생성하지 않고 변경 시 새 버전을 보존한다', () => {
+  const s = new Store(':memory:', { seed: false });
+  try {
+    const n = demoNotices('2026-11-08')[0];
+    assert.equal(s.upsert(n), true);
+    assert.equal(s.upsert(n), false);
+    assert.equal(s.all().length, 1);
+    assert.equal(s.versions(n.id).length, 1);
+    s.upsert({ ...n, deadline: '2026-12-01' });
+    assert.equal(s.versions(n.id).length, 2);
+    assert.equal(s.versions(n.id)[1].body.deadline, n.deadline);
+  } finally {
+    s.close();
+  }
+});
+test('재실행 후 조건·관심 공고가 유지되고 삭제 시 공고는 남는다', () => {
+  const folder = mkdtempSync(join(tmpdir(), 'moa-store-')),
+    path = join(folder, 'test.sqlite');
+  let s;
+  try {
+    s = new Store(path);
+    const id = s.all()[0].id;
+    s.saveProfile({ regions: ['서울'] });
+    s.favorite(id, true);
+    s.close();
+    s = new Store(path);
+    assert.deepEqual(s.profile(), { regions: ['서울'] });
+    assert.equal(s.get(id).favorite, true);
+    const count = s.all().length;
+    s.erasePersonal();
+    assert.deepEqual(s.profile(), {});
+    assert.equal(s.get(id).favorite, false);
+    assert.equal(s.all().length, count);
+  } finally {
+    s?.close();
+    rmSync(folder, { recursive: true, force: true });
+  }
+});
+test('수집 실패 이력과 처리 건수를 보관한다', () => {
+  const s = new Store(':memory:', { seed: false });
+  try {
+    const id = s.beginRun('lh');
+    s.finishRun(id, 'failed', 3, '재시도 필요');
+    assert.equal(s.runs()[0].status, 'failed');
+    assert.equal(s.runs()[0].count, 3);
+    assert.ok(s.runs()[0].endedAt);
+  } finally {
+    s.close();
+  }
+});
