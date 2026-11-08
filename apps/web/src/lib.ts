@@ -33,6 +33,7 @@ export const stageLabels: Record<NoticeStage, string> = {
   cancelled: '취소',
 };
 export const defaultFilters: Filters = {
+  excludeMismatch: false,
   search: '',
   region: '',
   type: '',
@@ -125,6 +126,7 @@ export function selectNotices(
 ) {
   return notices
     .filter((n) => {
+      if (filters.excludeMismatch && n.match.preference.state === 'mismatch') return false;
       if (filters.dataMode === 'demo' && !n.isDemo) return false;
       if (filters.dataMode === 'live' && n.isDemo) return false;
       if (!filters.includeClosed && ['closed', 'cancelled'].includes(n.match.stage)) return false;

@@ -75,6 +75,7 @@ export interface StoredNotice extends Notice {
   version: number;
 }
 export interface MatchResult {
+  preference: PreferenceAssessment;
   status: MatchStatus;
   score: number;
   reasons: string[];
@@ -82,6 +83,17 @@ export interface MatchResult {
   failed: string[];
   basisDate: string | null;
   stage: NoticeStage;
+}
+export type PreferenceState = 'matched' | 'mismatch' | 'unknown' | 'unset';
+export interface PreferenceCheck {
+  field: 'region' | 'type' | 'price' | 'deposit' | 'monthly';
+  label: string;
+  state: PreferenceState;
+  message: string;
+}
+export interface PreferenceAssessment {
+  state: PreferenceState;
+  checks: PreferenceCheck[];
 }
 export interface MatchedNotice extends StoredNotice {
   match: MatchResult;
@@ -145,6 +157,7 @@ export interface BootstrapData {
   quality: QualitySummary;
 }
 export interface Filters {
+  excludeMismatch: boolean;
   search: string;
   region: string;
   type: HousingType | '';

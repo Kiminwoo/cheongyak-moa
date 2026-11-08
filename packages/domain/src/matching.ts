@@ -1,4 +1,5 @@
 import { isRecord } from '@cheongyak-moa/contracts';
+import { comparePreferences, preferenceScore } from './preferences.js';
 import type {
   Profile,
   HousingType,
@@ -136,29 +137,11 @@ export function matchNotice(
   const reasons: string[] = [],
     missing: string[] = [],
     failed: string[] = [];
-  let score = 0;
-  if (profile.regions?.length) {
-    if (profile.regions.includes(notice.region)) {
-      reasons.push('관심 지역에 있어요');
-      score += 30;
-    } else reasons.push('관심 지역 밖의 공고예요');
-  }
-  if (profile.types?.includes(notice.type)) {
-    reasons.push('선택한 주거유형이에요');
-    score += 15;
-  }
-  const checkBudget = (amount: number | null, limit: number | null | undefined, label: string) => {
-    if (limit == null) return;
-    if (amount == null) reasons.push(`${label} 미확인 · 예산 비교가 필요해요`);
-    else if (amount <= limit * 10000) {
-      reasons.push(`${label}${label === '월 임대료' ? '가' : '이'} 입력 예산 이내예요`);
-      score += 10;
-    } else reasons.push(`${label}${label === '월 임대료' ? '가' : '이'} 입력 예산을 초과해요`);
-  };
-  if (notice.type === 'rental') {
-    checkBudget(notice.depositWon, profile.depositBudget, '보증금');
-    checkBudget(notice.monthlyWon, profile.monthlyBudget, '월 임대료');
-  } else checkBudget(notice.priceWon, profile.saleBudget, '표시 가격');
+  const preference = comparePreferences(notice, profile);
+  let score = preferenceScore(preference);
+  reasons.push(
+    ...preference.checks.filter((check) => check.state !== 'unset').map((check) => check.message),
+  );
   // 운영 공고는 승인·완결된 규칙이 없으면 반드시 수동 확인으로 남깁니다.
   const rules = notice.rules ?? [];
   const evaluable = rules.filter((r) => r.approved && r.evidence && r.basisDate);
@@ -192,6 +175,7 @@ export function matchNotice(
   if (status === 'demo-match') score += 20;
   if (status === 'ineligible') score -= 20;
   return {
+    preference,
     status,
     score,
     reasons: reasons.length ? reasons : ['조건을 입력하면 맞춤 이유를 확인할 수 있어요'],

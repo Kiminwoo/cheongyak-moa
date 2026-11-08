@@ -31,6 +31,7 @@ interface NoticeActions {
 }
 import React, { useEffect, useRef, useState } from 'react';
 import NoticeDataQuality from './NoticeDataQuality.js';
+import PreferenceDetails, { preferenceLabels } from './PreferenceDetails.js';
 import {
   matchLabels,
   typeLabels,
@@ -340,6 +341,15 @@ export function Sidebar({
         <button className="reset-button" onClick={onReset}>
           ↻ 검색 필터 초기화
         </button>
+        <label className="check-label">
+          <input
+            type="checkbox"
+            checked={filters.excludeMismatch}
+            onChange={(e) => onFilter('excludeMismatch', e.target.checked)}
+          />{' '}
+          선호 조건 불일치 제외
+        </label>
+        <p className="helper">금액·지역 미확인 공고는 확인 대상으로 남깁니다.</p>
       </div>
       <div className="coverage-card">
         <span className="mini-label">조금씩, 더 넓게</span>
@@ -527,6 +537,9 @@ export function NoticeCard({
           </>
         )}
       </div>
+      <p className={`preference-summary ${m.preference.state}`}>
+        {preferenceLabels[m.preference.state]}
+      </p>
       <div className={`match-box ${cls}`}>
         <div className="match-title">
           <span aria-hidden="true">
@@ -977,6 +990,7 @@ export function NoticeDetail({
         ))}
       </div>
       <NoticeDataQuality notice={n} />
+      <PreferenceDetails assessment={m.preference} />
       <section className="detail-section">
         <h3>{matchLabels[m.status]}</h3>
         <ul>

@@ -53,6 +53,8 @@ async function setup(t, { live = false } = {}) {
     notice.title = '수집된 실제 공고 테스트';
     notice.sourceId = 'applyhome';
     notice.isDemo = false;
+    notice.rules = [];
+    notice.rulesComplete = false;
     notice.match = matchNotice(notice, {}, data.today);
     data.notices.push(notice);
   }
@@ -150,4 +152,16 @@ test('공고 상세 모달은 닫기와 캘린더 이동이 동작한다', async
   assert.ok(container.querySelector('.desktop-calendar'));
   assert.ok(container.querySelector('.mobile-agenda'));
   assert.equal(container.querySelectorAll('.card').length, 0);
+});
+
+test('실제 공고 상세에 선호 비교와 자격 확인 상태를 함께 보여준다', async (t) => {
+  const { container } = await setup(t, { live: true });
+  assert.ok(container.textContent.includes('선호 조건을 설정해 주세요'));
+  await act(async () => container.querySelector('.card-title').click());
+  const detail = container.querySelector('section[aria-label="선호 조건 비교"]');
+  assert.ok(detail);
+  assert.ok(detail.textContent.includes('관심 지역'));
+  assert.ok(detail.textContent.includes('보증금'));
+  assert.ok(detail.textContent.includes('미입력'));
+  assert.ok(container.querySelector('dialog').textContent.includes('공고 확인 필요'));
 });
