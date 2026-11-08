@@ -2,6 +2,7 @@
 pushd "%~dp0"
 if not exist "node_modules\react\package.json" goto install
 if not exist "node_modules\esbuild\package.json" goto install
+if not exist "node_modules\typescript\package.json" goto install
 goto run
 :install
 echo Installing React dependencies. Internet access is required the first time.
