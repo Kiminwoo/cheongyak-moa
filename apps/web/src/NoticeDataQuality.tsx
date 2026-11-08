@@ -2,6 +2,8 @@ import type { MatchedNotice } from '@cheongyak-moa/contracts';
 import React from 'react';
 import { shortDate } from './lib.js';
 export default function NoticeDataQuality({ notice: n }: { notice: MatchedNotice }) {
+  const schedules = n.schedules ?? [];
+  const quality = n.quality ?? [];
   return (
     <>
       {n.provenance && (
@@ -14,11 +16,11 @@ export default function NoticeDataQuality({ notice: n }: { notice: MatchedNotice
           </p>
         </section>
       )}
-      {n.schedules?.length > 0 && (
+      {schedules.length > 0 && (
         <section className="detail-section">
           <h3>공급유형별 접수 일정</h3>
           <ul>
-            {n.schedules.map((s, i) => (
+            {schedules.map((s, i) => (
               <li key={i}>
                 {s.label} · {shortDate(s.start)} ~ {shortDate(s.end)}
               </li>
@@ -27,11 +29,11 @@ export default function NoticeDataQuality({ notice: n }: { notice: MatchedNotice
           <p>날짜 범위이며 접수 마감시간은 원문을 확인해 주세요.</p>
         </section>
       )}
-      {n.quality?.length > 0 && (
+      {quality.length > 0 && (
         <section className="detail-section">
           <h3>추가 확인할 데이터</h3>
           <ul>
-            {n.quality.map((q, i) => (
+            {quality.map((q, i) => (
               <li key={i}>{q.message}</li>
             ))}
           </ul>

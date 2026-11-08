@@ -148,7 +148,7 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
       if (
         e.key === '/' &&
         !modal &&
-        !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) &&
+        !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '') &&
         searchRef.current
       ) {
         e.preventDefault();

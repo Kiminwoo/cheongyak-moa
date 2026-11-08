@@ -817,7 +817,7 @@ export function ProfileForm({
                     type="checkbox"
                     name="types"
                     value={v}
-                    defaultChecked={p.types?.includes(v)}
+                    defaultChecked={p.types?.some((type) => type === v)}
                   />
                   <span>{label}</span>
                 </label>
