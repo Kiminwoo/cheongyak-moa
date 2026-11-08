@@ -6,7 +6,7 @@ import App from '../src/App.js';
 import { demoNotices } from '../../api/src/core/demo.js';
 import { matchNotice } from '@cheongyak-moa/domain';
 
-async function setup(t, { live = false, pricing = false, local = false } = {}) {
+async function setup(t, { live = false, pricing = false, local = false, readOnly = false } = {}) {
   const w = new Window({ url: 'http://localhost:4310' });
   const prior = new Map();
   for (const [key, value] of Object.entries({
@@ -33,6 +33,7 @@ async function setup(t, { live = false, pricing = false, local = false } = {}) {
   w.document.body.append(container);
   const root = createRoot(container);
   const data = {
+    readOnly,
     profile: {},
     today: '2026-11-08',
     regions: ['서울', '경기', '인천'],
@@ -128,6 +129,24 @@ test('React 컴포넌트가 공고와 모바일 메뉴를 렌더링한다', asyn
   assert.equal(container.querySelectorAll('.mobile-nav button').length, 4);
   assert.ok(container.textContent.includes('실제 공고가 아닌'));
   assert.ok(container.querySelector('.header-actions button'));
+});
+
+test('공유 화면은 실제 공고를 조회하면서 개인 조건과 관리 기능을 제공하지 않는다', async (t) => {
+  const { container, calls } = await setup(t, { live: true, readOnly: true });
+  assert.ok(container.textContent.includes('공유 미리보기 · 조회 전용'));
+  assert.equal(container.querySelectorAll('.card').length, 1);
+  assert.equal(container.querySelector('#profile-summary'), null);
+  assert.equal(container.querySelector('.hero-link'), null);
+  assert.equal(container.querySelectorAll('.mobile-nav button').length, 2);
+  assert.ok([...container.querySelectorAll('.bookmark')].every((button) => button.disabled));
+  await act(async () => container.querySelector('.card-title').click());
+  assert.equal(container.querySelector('dialog').getAttribute('aria-label'), '청약 공고 상세');
+  assert.ok(!calls.some((call) => call.path?.startsWith('/api/versions/')));
+  await act(async () => container.querySelector('.close-dialog').click());
+  await act(async () => container.querySelector('.local-chip').click());
+  assert.ok(container.querySelector('#sources-panel').textContent.includes('공고 출처'));
+  assert.ok(!container.querySelector('#sources-panel').textContent.includes('.env'));
+  assert.ok(!calls.some((call) => call.method && call.method !== 'GET'));
 });
 
 test('기관별 마이홈 수집 경로와 정상 응답 0건을 연동 예정과 구분해서 표시한다', async (t) => {

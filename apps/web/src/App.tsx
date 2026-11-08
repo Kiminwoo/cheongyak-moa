@@ -85,6 +85,11 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
     dataModeInitialized = useRef(false),
     mounted = useRef(true),
     { installed, install } = useInstallation();
+  const readOnly = data?.readOnly === true;
+  const openProfile = () => {
+    if (!data || readOnly) return;
+    setModal({ type: 'profile' });
+  };
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
       const payload = await requestFn<BootstrapData>('/api/bootstrap', { signal });
@@ -95,6 +100,7 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
             dataMode: payload.notices.some((notice) => !notice.isDemo) ? 'live' : 'demo',
           }));
           dataModeInitialized.current = true;
+          if (payload.readOnly) setView('all');
         }
         setData(payload);
         setMonth((m) => m || payload.today.slice(0, 7));
@@ -167,6 +173,7 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
     return () => document.removeEventListener('keydown', shortcut);
   }, [modal]);
   const navigate = (next: View) => {
+    if (readOnly && ['matching', 'favorites'].includes(next)) next = 'all';
     setView(next);
     setFilters((f) => ({ ...f, status: '' }));
   };
@@ -174,7 +181,7 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
   const reset = () => setFilters((f) => ({ ...defaultFilters, dataMode: f.dataMode }));
   const closeModal = () => setModal(null);
   async function saveFavorite(id: string) {
-    if (offline || pending.has(id)) return;
+    if (offline || readOnly || pending.has(id)) return;
     const notice = data?.notices.find((n) => n.id === id);
     if (!notice) return;
     setPending((p) => new Set(p).add(id));
@@ -193,16 +200,19 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
     }
   }
   async function saveProfile(profile: unknown) {
+    if (readOnly) return;
     await requestFn('/api/profile', { method: 'POST', body: profile });
     await refresh();
     setMessage('나의 조건과 추천 이유가 업데이트되었어요.');
   }
   async function erase() {
+    if (readOnly) return;
     await requestFn('/api/personal', { method: 'DELETE' });
     await refresh();
     setMessage('입력한 조건과 관심 공고를 삭제했습니다.');
   }
   async function collect() {
+    if (readOnly) return;
     setBusy(true);
     try {
       await requestFn('/api/collect', { method: 'POST', body: {} });
@@ -215,12 +225,14 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
     }
   }
   async function importData(payload: ImportInput) {
+    if (readOnly) return;
     const result = await requestFn<ImportResult>('/api/import', { method: 'POST', body: payload });
     await refresh();
     filter('dataMode', 'live');
     setMessage(`${result.count}건을 가져왔어요. 파일 자료는 원문 미검수 상태입니다.`);
   }
   async function collectBoards() {
+    if (readOnly) return;
     setBusy(true);
     try {
       await requestFn('/api/collect-boards', { method: 'POST', body: {} });
@@ -233,6 +245,7 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
     }
   }
   async function setupEnv() {
+    if (readOnly) return;
     setBusy(true);
     try {
       const result = await requestFn<{ message: string }>('/api/setup-env', {
@@ -271,12 +284,19 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
         본문 바로가기
       </a>
       <Header
+        readOnly={readOnly}
         view={view}
         onNavigate={navigate}
         favoriteCount={favoriteCount}
         onInstall={installApp}
         installed={installed}
       />
+      {readOnly && (
+        <div className="connection-banner" role="status">
+          공유 미리보기 · 조회 전용 · 개인 조건과 관심 목록은 제공하지 않습니다.
+          {data?.snapshotAt && ` · 공고 사본: ${new Date(data.snapshotAt).toLocaleString('ko-KR')}`}
+        </div>
+      )}
       {(offline || error || updateAvailable) && (
         <div className="connection-banner" role="status">
           {offline
@@ -295,13 +315,7 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
         </div>
       )}
       <main id="content" className="container">
-        <Hero
-          onProfile={() =>
-            data
-              ? setModal({ type: 'profile' })
-              : setMessage('서버 연결 후 조건을 입력할 수 있어요.')
-          }
-        />
+        <Hero readOnly={readOnly} onProfile={openProfile} />
         {data ? (
           <>
             <DataNotice
@@ -311,12 +325,13 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
             />
             <div className="workspace">
               <Sidebar
+                readOnly={readOnly}
                 profile={data.profile}
                 regions={data.regions}
                 filters={filters}
                 onFilter={filter}
                 onReset={reset}
-                onProfile={() => setModal({ type: 'profile' })}
+                onProfile={openProfile}
                 onSources={() => navigate('sources')}
               />
               <section className="results" aria-labelledby="results-title">
@@ -342,16 +357,31 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
                   }}
                 />
                 {view === 'sources' ? (
-                  <DataConnections
-                    data={data}
-                    onCollect={collect}
-                    onBoards={collectBoards}
-                    onRefresh={() => refresh().catch((e) => setMessage(errorMessage(e)))}
-                    onImport={importData}
-                    onSetup={setupEnv}
-                    offline={offline}
-                    busy={busy}
-                  />
+                  readOnly ? (
+                    <section id="sources-panel">
+                      <h3>공고 출처</h3>
+                      <p>
+                        공개 모집공고를 조회하는 화면입니다. 수집·설정 기능과 개인 정보는 제공하지
+                        않습니다. 전국 모든 기관의 공고가 연동된 상태는 아닙니다.
+                      </p>
+                      {data.sources.map((source) => (
+                        <p key={source.id}>
+                          {source.name} · {source.count}건 · {source.scope}
+                        </p>
+                      ))}
+                    </section>
+                  ) : (
+                    <DataConnections
+                      data={data}
+                      onCollect={collect}
+                      onBoards={collectBoards}
+                      onRefresh={() => refresh().catch((e) => setMessage(errorMessage(e)))}
+                      onImport={importData}
+                      onSetup={setupEnv}
+                      offline={offline}
+                      busy={busy}
+                    />
+                  )
                 ) : view === 'calendar' ? (
                   <Calendar
                     month={month || data.today.slice(0, 7)}
@@ -378,7 +408,7 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
                             onDetail={(id) => setModal({ type: 'detail', id })}
                             onFavorite={saveFavorite}
                             pending={pending.has(n.id)}
-                            offline={offline}
+                            offline={offline || readOnly}
                           />
                         ))
                       ) : (
@@ -444,8 +474,13 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
           <span>TYPESCRIPT MONOREPO · 0.4</span>
         </footer>
       </main>
-      <MobileNavigation view={view} onNavigate={navigate} favoriteCount={favoriteCount} />
-      {modal?.type === 'profile' && data && (
+      <MobileNavigation
+        readOnly={readOnly}
+        view={view}
+        onNavigate={navigate}
+        favoriteCount={favoriteCount}
+      />
+      {modal?.type === 'profile' && data && !readOnly && (
         <Modal onClose={closeModal} label="나의 청약 조건">
           <ProfileForm
             profile={data.profile}
@@ -461,11 +496,12 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
       {detail && (
         <Modal onClose={closeModal} label="청약 공고 상세">
           <NoticeDetail
+            readOnly={readOnly}
             notice={detail}
             onClose={closeModal}
             onFavorite={saveFavorite}
             pending={pending.has(detail.id)}
-            offline={offline}
+            offline={offline || readOnly}
             requestFn={requestFn}
           />
         </Modal>

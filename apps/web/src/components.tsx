@@ -10,11 +10,13 @@ import type {
 import type { ReactNode, RefObject, FormEvent } from 'react';
 import type { CalendarCell } from './lib.js';
 interface NavigationProps {
+  readOnly?: boolean;
   view: View;
   onNavigate: (view: View) => void;
   favoriteCount: number;
 }
 interface SidebarProps {
+  readOnly?: boolean;
   profile: Profile;
   regions: string[];
   filters: Filters;
@@ -24,6 +26,7 @@ interface SidebarProps {
   onSources: () => void;
 }
 interface NoticeActions {
+  readOnly?: boolean;
   notice: MatchedNotice;
   onFavorite: (id: string) => void;
   pending: boolean;
@@ -60,6 +63,7 @@ export function Header({
   favoriteCount,
   onInstall,
   installed,
+  readOnly,
 }: NavigationProps & { onInstall: () => void; installed: boolean }) {
   return (
     <header className="header">
@@ -71,22 +75,26 @@ export function Header({
           </span>
         </a>
         <nav className="desktop-nav" aria-label="주 메뉴">
-          {navigation.map(([id, label]) => (
-            <button
-              key={id}
-              className={`nav ${view === id ? 'active' : ''}`}
-              aria-current={view === id ? 'page' : undefined}
-              onClick={() => onNavigate(id)}
-            >
-              {label}
-              {id === 'favorites' && <span>{favoriteCount}</span>}
-            </button>
-          ))}
+          {navigation
+            .filter(([id]) => !readOnly || !['matching', 'favorites'].includes(id))
+            .map(([id, label]) => (
+              <button
+                key={id}
+                className={`nav ${view === id ? 'active' : ''}`}
+                aria-current={view === id ? 'page' : undefined}
+                onClick={() => onNavigate(id)}
+              >
+                {label}
+                {id === 'favorites' && <span>{favoriteCount}</span>}
+              </button>
+            ))}
         </nav>
         <div className="header-actions">
-          <button className="install-button" onClick={onInstall}>
-            {installed ? '앱 사용 안내' : '앱 설치 안내'} <span aria-hidden="true">↧</span>
-          </button>
+          {!readOnly && (
+            <button className="install-button" onClick={onInstall}>
+              {installed ? '앱 사용 안내' : '앱 설치 안내'} <span aria-hidden="true">↧</span>
+            </button>
+          )}
           <button
             className="local-chip"
             onClick={() => onNavigate('sources')}
@@ -101,28 +109,30 @@ export function Header({
   );
 }
 
-export function MobileNavigation({ view, onNavigate, favoriteCount }: NavigationProps) {
+export function MobileNavigation({ view, onNavigate, favoriteCount, readOnly }: NavigationProps) {
   return (
     <nav className="mobile-nav" aria-label="모바일 주 메뉴">
-      {navigation.map(([id, label, icon]) => (
-        <button
-          key={id}
-          className={view === id ? 'active' : ''}
-          aria-current={view === id ? 'page' : undefined}
-          onClick={() => onNavigate(id)}
-        >
-          <span className="mobile-nav-icon" aria-hidden="true">
-            {icon}
-            {id === 'favorites' && favoriteCount > 0 && <small>{favoriteCount}</small>}
-          </span>
-          {label}
-        </button>
-      ))}
+      {navigation
+        .filter(([id]) => !readOnly || !['matching', 'favorites'].includes(id))
+        .map(([id, label, icon]) => (
+          <button
+            key={id}
+            className={view === id ? 'active' : ''}
+            aria-current={view === id ? 'page' : undefined}
+            onClick={() => onNavigate(id)}
+          >
+            <span className="mobile-nav-icon" aria-hidden="true">
+              {icon}
+              {id === 'favorites' && favoriteCount > 0 && <small>{favoriteCount}</small>}
+            </span>
+            {label}
+          </button>
+        ))}
     </nav>
   );
 }
 
-export function Hero({ onProfile }: { onProfile: () => void }) {
+export function Hero({ onProfile, readOnly }: { onProfile: () => void; readOnly?: boolean }) {
   return (
     <section className="hero" aria-labelledby="hero-title">
       <div className="hero-copy">
@@ -139,9 +149,11 @@ export function Hero({ onProfile }: { onProfile: () => void }) {
           <br />
           여러 기관의 청약을 한곳에서 차근차근 살펴보세요.
         </p>
-        <button className="hero-link" onClick={onProfile}>
-          내 조건 설정하기 <span aria-hidden="true">↗</span>
-        </button>
+        {!readOnly && (
+          <button className="hero-link" onClick={onProfile}>
+            내 조건 설정하기 <span aria-hidden="true">↗</span>
+          </button>
+        )}
       </div>
       <div className="hero-art" aria-hidden="true">
         <svg viewBox="0 0 600 300" fill="none">
@@ -239,6 +251,7 @@ export function Sidebar({
   onReset,
   onProfile,
   onSources,
+  readOnly,
 }: SidebarProps) {
   const [expanded, setExpanded] = useState(false);
   const entries = [
@@ -252,34 +265,38 @@ export function Sidebar({
   ];
   return (
     <aside className="sidebar" aria-label="나의 조건과 검색 필터">
-      <div className="side-heading">
-        <div>
-          <p className="eyebrow">MY CONDITIONS</p>
-          <h2>나의 청약 조건</h2>
-        </div>
-        <span className="round-icon" aria-hidden="true">
-          ⌁
-        </span>
-      </div>
-      <div id="profile-summary">
-        <div className="summary-items">
-          {entries.map(([label, value]) => (
-            <div className="summary-item" key={label}>
-              <span>{label}</span>
-              <strong>{value}</strong>
+      {!readOnly && (
+        <>
+          <div className="side-heading">
+            <div>
+              <p className="eyebrow">MY CONDITIONS</p>
+              <h2>나의 청약 조건</h2>
             </div>
-          ))}
-        </div>
-      </div>
-      <button className="primary full" onClick={onProfile}>
-        {Object.keys(profile).length ? '내 조건 수정하기' : '내 조건 설정하기'}{' '}
-        <span aria-hidden="true">＋</span>
-      </button>
-      <p className="side-footnote">
-        조건을 입력할수록
-        <br />
-        추천 이유를 자세히 알려드려요.
-      </p>
+            <span className="round-icon" aria-hidden="true">
+              ⌁
+            </span>
+          </div>
+          <div id="profile-summary">
+            <div className="summary-items">
+              {entries.map(([label, value]) => (
+                <div className="summary-item" key={label}>
+                  <span>{label}</span>
+                  <strong>{value}</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+          <button className="primary full" onClick={onProfile}>
+            {Object.keys(profile).length ? '내 조건 수정하기' : '내 조건 설정하기'}{' '}
+            <span aria-hidden="true">＋</span>
+          </button>
+          <p className="side-footnote">
+            조건을 입력할수록
+            <br />
+            추천 이유를 자세히 알려드려요.
+          </p>
+        </>
+      )}
       <button
         className="mobile-filter-toggle secondary"
         aria-expanded={expanded}
@@ -968,10 +985,12 @@ export function NoticeDetail({
   pending,
   offline,
   requestFn,
+  readOnly,
 }: NoticeActions & { onClose: () => void; requestFn: RequestFn }) {
   const [versions, setVersions] = useState<{ version: number; createdAt: string }[] | null>(null),
     [error, setError] = useState('');
   useEffect(() => {
+    if (readOnly) return;
     const controller = new AbortController();
     requestFn<{ version: number; createdAt: string }[]>(
       `/api/versions/${encodeURIComponent(n.id)}`,
@@ -983,7 +1002,7 @@ export function NoticeDetail({
           setError('이력을 불러오지 못했습니다.');
       });
     return () => controller.abort();
-  }, [n.id, requestFn]);
+  }, [n.id, requestFn, readOnly]);
   const m = n.match,
     items = [
       ['공급 지역', `${n.region} ${n.city}`],
@@ -1051,15 +1070,17 @@ export function NoticeDetail({
           ))}
         </section>
       )}
-      <section className="detail-section">
-        <h3>원본과 변경 이력</h3>
-        <p>
-          {error ||
-            (versions
-              ? versions.map((v) => `v${v.version} · ${dateTime(v.createdAt)}`).join(' / ')
-              : '변경 이력을 확인하고 있어요…')}
-        </p>
-      </section>
+      {!readOnly && (
+        <section className="detail-section">
+          <h3>원본과 변경 이력</h3>
+          <p>
+            {error ||
+              (versions
+                ? versions.map((v) => `v${v.version} · ${dateTime(v.createdAt)}`).join(' / ')
+                : '변경 이력을 확인하고 있어요…')}
+          </p>
+        </section>
+      )}
       <div className="detail-actions">
         {n.sourceUrl ? (
           <a className="primary" href={n.sourceUrl} target="_blank" rel="noopener noreferrer">

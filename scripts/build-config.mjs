@@ -83,10 +83,19 @@ export function apiOptions() {
     absWorkingDir: root,
     entryPoints: {
       server: join(root, 'apps/api/src/main.ts'),
+      'preview-handler': join(root, 'apps/api/src/vercel-preview.ts'),
       ...Object.fromEntries(
-        ['collect', 'local', 'boards', 'prices', 'doctor', 'import-response', 'setup-env'].map(
-          (name) => ['cli/' + name, join(root, `apps/api/src/cli/${name}.ts`)],
-        ),
+        [
+          'collect',
+          'local',
+          'boards',
+          'prices',
+          'doctor',
+          'import-response',
+          'setup-env',
+          'preview',
+          'preview-vercel',
+        ].map((name) => ['cli/' + name, join(root, `apps/api/src/cli/${name}.ts`)]),
       ),
     },
     outdir: join(root, 'apps/api/dist'),

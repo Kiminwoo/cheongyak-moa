@@ -163,6 +163,8 @@ export interface QualitySummary {
   missingPrice: number;
 }
 export interface BootstrapData {
+  readOnly?: boolean;
+  snapshotAt?: string;
   profile: Profile;
   notices: MatchedNotice[];
   regions: string[];

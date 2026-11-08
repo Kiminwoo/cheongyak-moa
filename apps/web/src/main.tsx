@@ -8,7 +8,11 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
-if ('serviceWorker' in navigator && window.isSecureContext) {
+if (
+  'serviceWorker' in navigator &&
+  window.isSecureContext &&
+  !document.querySelector('meta[name="cheongyak-preview"]')
+) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/sw.js')
