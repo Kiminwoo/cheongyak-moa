@@ -24,11 +24,9 @@ jobs:
         with:
           node-version: '22'
       - name: Install dependencies
-        run: npm install
-      - name: Prepare monorepo formatting and lockfile
-        run: |
-          npm run format
-          node scripts/ci-bootstrap.mjs
+        run: npm ci
+      - name: Check formatting
+        run: npm run format:check
       - name: Check workspace boundaries
         run: npm run lint
       - name: Check TypeScript
