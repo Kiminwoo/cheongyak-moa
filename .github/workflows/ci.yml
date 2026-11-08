@@ -1,0 +1,32 @@
+name: Verify application
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # 초기 작업 환경의 네트워크 제한으로 lockfile을 아직 생성하지 못했습니다.
+      # 첫 정상 설치 후 package-lock.json을 커밋하면 npm ci로 전환합니다.
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+      - name: Build React application
+        run: npm run build
+      - name: Test API, matching, storage and PWA
+        run: npm test
+      - name: Test React components
+        run: npm run test:ui

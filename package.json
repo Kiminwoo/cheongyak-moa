@@ -1,0 +1,24 @@
+{
+  "name": "cheongyak-moa-local",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "조건으로 모아보는 청약 · 로컬 개발 버전",
+  "engines": { "node": ">=22.15.0" },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "prestart": "npm run build",
+    "start": "node --experimental-sqlite --env-file-if-exists=.env server.js",
+    "test": "node --experimental-sqlite --test test/*.test.js",
+    "test:ui": "node scripts/test-ui.mjs",
+    "collect": "node --experimental-sqlite --env-file-if-exists=.env scripts/collect.js"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "happy-dom": "^20.0.0"
+  }
+}

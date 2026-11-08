@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+data/
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.log
+node_modules/
+.npm-cache/
+.test-build/
+coverage/
+.DS_Store
+Thumbs.db
+public/app.js
+public/app.js.map
