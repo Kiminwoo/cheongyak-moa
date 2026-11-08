@@ -1,6 +1,12 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, parse } from 'node:path';
 import { fileURLToPath } from 'node:url';
+export function dataPaths(root: string) {
+  return {
+    database: join(root, 'data', 'cheongyak.sqlite'),
+    raw: join(root, 'data', 'raw'),
+  };
+}
 export function projectRoot(moduleUrl: string): string {
   let directory = dirname(fileURLToPath(moduleUrl));
   while (directory !== parse(directory).root) {

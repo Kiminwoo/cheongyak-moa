@@ -1,6 +1,6 @@
 import { isRecord, errorMessage, errorCode } from '@cheongyak-moa/contracts';
 import type { Environment, FetchJSON, ConnectionInfo } from '@cheongyak-moa/contracts';
-import { projectRoot as findProjectRoot } from './paths.js';
+import { projectRoot as findProjectRoot, dataPaths } from './paths.js';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -42,7 +42,7 @@ interface AppOptions {
   projectRoot?: string;
 }
 export function createApp({
-  store = new Store(join(ROOT, 'data', 'cheongyak.sqlite')),
+  store = new Store(dataPaths(ROOT).database),
   env = process.env,
   fetchFn = fetch,
   projectRoot = ROOT,

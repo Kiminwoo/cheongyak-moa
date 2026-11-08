@@ -82,12 +82,20 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
   const [offline, setOffline] = useState(() => navigator.onLine === false),
     [updateAvailable, setUpdateAvailable] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null),
+    dataModeInitialized = useRef(false),
     mounted = useRef(true),
     { installed, install } = useInstallation();
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
       const payload = await requestFn<BootstrapData>('/api/bootstrap', { signal });
       if (mounted.current) {
+        if (!dataModeInitialized.current) {
+          setFilters((current) => ({
+            ...current,
+            dataMode: payload.notices.some((notice) => !notice.isDemo) ? 'live' : 'demo',
+          }));
+          dataModeInitialized.current = true;
+        }
         setData(payload);
         setMonth((m) => m || payload.today.slice(0, 7));
         setError('');

@@ -6,7 +6,7 @@ import App from '../src/App.js';
 import { demoNotices } from '../../api/src/core/demo.js';
 import { matchNotice } from '@cheongyak-moa/domain';
 
-async function setup(t) {
+async function setup(t, { live = false } = {}) {
   const w = new Window({ url: 'http://localhost:4310' });
   const prior = new Map();
   for (const [key, value] of Object.entries({
@@ -47,6 +47,15 @@ async function setup(t) {
     })),
   };
   const calls = [];
+  if (live) {
+    const notice = structuredClone(data.notices[0]);
+    notice.id = 'applyhome-live-test';
+    notice.title = '수집된 실제 공고 테스트';
+    notice.sourceId = 'applyhome';
+    notice.isDemo = false;
+    notice.match = matchNotice(notice, {}, data.today);
+    data.notices.push(notice);
+  }
   const requestFn = async (path, options = {}) => {
     calls.push({ path, ...options });
     if (path === '/api/profile') {
@@ -83,6 +92,22 @@ test('React 컴포넌트가 공고와 모바일 메뉴를 렌더링한다', asyn
   assert.equal(container.querySelectorAll('.mobile-nav button').length, 4);
   assert.ok(container.textContent.includes('실제 공고가 아닌'));
   assert.ok(container.querySelector('.header-actions button'));
+});
+
+test('수집 공고가 있으면 실제 데이터를 먼저 표시하고 선택한 예시 모드는 유지한다', async (t) => {
+  const { container, w } = await setup(t, { live: true });
+  assert.equal(container.querySelectorAll('.card').length, 1);
+  assert.ok(container.textContent.includes('수집된 실제 공고 테스트'));
+  const mode = container.querySelector('#filter-data');
+  assert.ok(mode);
+  await act(async () => {
+    mode.value = 'demo';
+    mode.dispatchEvent(new w.Event('change', { bubbles: true }));
+  });
+  assert.equal(container.querySelectorAll('.card').length, 8);
+  await act(async () => w.dispatchEvent(new w.Event('online')));
+  assert.equal(mode.value, 'demo');
+  assert.equal(container.querySelectorAll('.card').length, 8);
 });
 test('관심 저장과 관심 탭이 React 상태와 API를 갱신한다', async (t) => {
   const { container, calls } = await setup(t);
