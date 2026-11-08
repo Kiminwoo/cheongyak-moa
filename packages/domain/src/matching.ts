@@ -129,6 +129,9 @@ function ageAt(birth: string, basis: string): number {
   if (basis.slice(5) < birth.slice(5)) age--;
   return age;
 }
+export function isActiveNotice(notice: Notice, today = koreaToday()): boolean {
+  return !['closed', 'cancelled'].includes(stage(notice, today));
+}
 export function matchNotice(
   notice: Notice,
   profile: Profile = {},

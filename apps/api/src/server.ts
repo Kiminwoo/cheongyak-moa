@@ -127,7 +127,10 @@ export function createApp({
       }
       if (req.method === 'GET' && url.pathname === '/api/bootstrap') {
         const profile = store.profile(),
-          notices = store.all().map((n) => ({ ...n, match: matchNotice(n, profile) }));
+          notices = store
+            .all()
+            .map((n) => ({ ...n, match: matchNotice(n, profile) }))
+            .filter((n) => !['closed', 'cancelled'].includes(n.match.stage));
         const info = connection();
         return send(200, {
           profile,

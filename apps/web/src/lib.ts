@@ -39,7 +39,6 @@ export const defaultFilters: Filters = {
   region: '',
   type: '',
   dataMode: 'demo',
-  includeClosed: false,
   status: '',
   sort: 'recommended',
 };
@@ -131,7 +130,7 @@ export function selectNotices(
       if (filters.excludeMismatch && n.match.preference.state === 'mismatch') return false;
       if (filters.dataMode === 'demo' && !n.isDemo) return false;
       if (filters.dataMode === 'live' && n.isDemo) return false;
-      if (!filters.includeClosed && ['closed', 'cancelled'].includes(n.match.stage)) return false;
+      if (['closed', 'cancelled'].includes(n.match.stage)) return false;
       if (filters.region && n.region !== filters.region && n.region !== '전국') return false;
       if (filters.type && n.type !== filters.type) return false;
       if (view === 'favorites' && !n.favorite) return false;

@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { createApp } from '../src/server.js';
 import { Store } from '../src/core/store.js';
 import { request } from 'node:http';
-async function fixture(t) {
-  const store = new Store(':memory:'),
-    { server } = createApp({ store, env: {} });
+import { demoNotices } from '../src/core/demo.js';
+async function fixture(t, store = new Store(':memory:')) {
+  const { server } = createApp({ store, env: {} });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   t.after(async () => {
     server.closeAllConnections();
@@ -23,9 +23,29 @@ test('화면과 API가 동작하고 비밀정보를 반환하지 않는다', asy
   assert.match(page.headers.get('content-security-policy'), /frame-ancestors 'none'/);
   const res = await fetch(base + '/api/bootstrap');
   const data = await res.json();
-  assert.equal(data.notices.length, 9);
+  assert.equal(data.notices.length, 8);
+  assert.ok(data.notices.every((n) => !['closed', 'cancelled'].includes(n.match.stage)));
   assert.ok(data.notices.every((n) => n.isDemo));
   assert.ok(!JSON.stringify(data).includes('SERVICE_KEY'));
+});
+
+test('활성 API는 마감·취소를 제외하고 일정 미확인은 남기며 저장된 이력을 삭제하지 않는다', async (t) => {
+  const store = new Store(':memory:', { seed: false });
+  const template = { ...demoNotices()[0], isDemo: false, sourceId: 'applyhome' };
+  store.upsertBatch([
+    { ...template, id: 'closed', deadline: '2000-01-01' },
+    { ...template, id: 'cancelled', cancelled: true },
+    { ...template, id: 'unknown', starts: null, deadline: null },
+  ]);
+  const base = await fixture(t, store);
+  const data = await (await fetch(base + '/api/bootstrap')).json();
+  assert.deepEqual(
+    data.notices.map((notice) => notice.id),
+    ['unknown'],
+  );
+  assert.equal(data.sources.find((source) => source.id === 'applyhome').count, 1);
+  assert.equal(data.quality.total, 1);
+  assert.equal(store.all().length, 3);
 });
 test('조건 저장・검증・관심 저장・개인정보 삭제', async (t) => {
   const base = await fixture(t);

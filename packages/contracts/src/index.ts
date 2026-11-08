@@ -175,7 +175,6 @@ export interface Filters {
   region: string;
   type: HousingType | '';
   dataMode: 'demo' | 'live' | 'both';
-  includeClosed: boolean;
   status: MatchStatus | '';
   sort: 'recommended' | 'deadline' | 'recent';
 }

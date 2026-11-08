@@ -331,14 +331,6 @@ export function Sidebar({
           <option value="live">수집·가져온 공고</option>
           <option value="both">전체 · 예시 포함</option>
         </select>
-        <label className="check-label">
-          <input
-            type="checkbox"
-            checked={filters.includeClosed}
-            onChange={(e) => onFilter('includeClosed', e.target.checked)}
-          />{' '}
-          마감·취소 공고도 보기
-        </label>
         <button className="reset-button" onClick={onReset}>
           ↻ 검색 필터 초기화
         </button>

@@ -24,10 +24,7 @@ test('프런트 검색은 지역·검색어·마감·데이터 구분을 함께 
     selectNotices(notices, { ...defaultFilters, dataMode: 'live' }, 'matching').length,
     0,
   );
-  assert.equal(
-    selectNotices(notices, { ...defaultFilters, includeClosed: true }, 'matching').length,
-    9,
-  );
+  assert.equal(selectNotices(notices, defaultFilters, 'matching').length, 8);
 });
 test('관심 목록과 자격 상태 필터는 원본 데이터를 바꾸지 않는다', () => {
   const input = notices.map((n, i) => ({ ...n, favorite: i === 0 }));
@@ -46,18 +43,18 @@ test('미확인 마감일은 임박순 정렬 뒤에 남는다', () => {
   assert.equal(deadlineText(missing, today), '접수일 원문 확인');
 });
 
-test('접수 중 필터는 마감 포함 여부와 관계없이 예정·마감·취소·미확인 일정을 제외한다', () => {
+test('접수 중 필터는 예정·마감·취소·미확인 일정을 제외한다', () => {
   const input = ['open', 'upcoming', 'closed', 'cancelled', 'unknown'].map((stage) => ({
     ...notices[0],
     id: stage,
     match: { ...notices[0].match, stage },
   }));
-  const filters = { ...defaultFilters, openOnly: true, includeClosed: true };
+  const filters = { ...defaultFilters, openOnly: true };
   assert.deepEqual(
     selectNotices(input, filters, 'matching').map((notice) => notice.id),
     ['open'],
   );
-  assert.equal(selectNotices(input, filters, 'matching', { stage: false }).length, 5);
+  assert.equal(selectNotices(input, filters, 'matching', { stage: false }).length, 3);
   assert.equal(selectNotices(input, { ...filters, region: '제주' }, 'matching').length, 0);
 });
 

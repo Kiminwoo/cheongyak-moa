@@ -40,6 +40,26 @@ test('주택형 최고금액을 만원에서 원으로 변환하고 실제 최�
     );
 });
 
+test('마감·취소 공고의 가격 API는 호출하지 않는다', async () => {
+  const store = new Store(':memory:', { seed: false });
+  try {
+    store.upsert({ ...notice, deadline: '2026-11-07' });
+    store.upsert({ ...notice, id: 'cancelled', cancelled: true });
+    const result = await collectPrices(store, {
+      env: { APPLYHOME_SERVICE_KEY: 'fake-key' },
+      today: '2026-11-08',
+      fetchFn: async () => {
+        throw new Error('호출되면 안 됩니다');
+      },
+    });
+    assert.equal(result.total, 0);
+    assert.equal(result.failed, 0);
+    assert.equal(store.all().length, 2);
+  } finally {
+    store.close();
+  }
+});
+
 test('다른 공고의 금액·잘못된 금액·주택형 충돌은 거부한다', () => {
   for (const change of [
     { PBLANC_NO: 'other' },

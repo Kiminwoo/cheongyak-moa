@@ -2,7 +2,7 @@ import { isRecord, errorCode } from '@cheongyak-moa/contracts';
 import type { Environment, Notice, CollectionResult, FetchJSON } from '@cheongyak-moa/contracts';
 import type { Store } from './store.js';
 import { createHash } from 'node:crypto';
-import { koreaToday } from '@cheongyak-moa/domain';
+import { koreaToday, isActiveNotice } from '@cheongyak-moa/domain';
 import { HOME_BASE, HOME_OPERATIONS, IMPORT_FORMATS, lhRows } from './normalization.js';
 import { collectionConfig } from './config.js';
 import { preparePayload, saveRaw } from './ingestion.js';
@@ -180,15 +180,19 @@ export async function collect(
             );
         }
       }
-      const notices = [...staged.values()].map((notice) => {
+      const normalized = [...staged.values()].map((notice) => {
         const existing = store.get(notice.id);
         if (!existing?.pricing || existing.type !== notice.type) return notice;
         const preserved = { ...notice, pricing: existing.pricing, priceBasis: existing.priceBasis };
         return { ...preserved, quality: inspectNotice(preserved) };
       });
-      const changes = store.upsertBatch(notices);
+      const notices = normalized.filter((notice) => isActiveNotice(notice, today));
+      const terminal = normalized.filter((notice) => !isActiveNotice(notice, today));
+      // 기존 공고의 취소·마감 정정은 보존해 이전 활성 상태가 계속 노출되지 않게 합니다.
+      const terminalUpdates = terminal.filter((notice) => store.get(notice.id));
+      const changes = store.upsertBatch([...notices, ...terminalUpdates]);
       const warnings = notices.reduce((sum, n) => sum + (n.quality?.length ?? 0), 0);
-      const message = `${config.from}~${config.to} 범위 ${notices.length}건 처리 · ${changes}건 신규·변경 · 원문 미검수`;
+      const message = `${config.from}~${config.to} 범위 활성 ${notices.length}건 처리 · 마감·취소 ${terminal.length}건 제외 · ${changes}건 신규·변경(기존 공고 정정 포함) · 원문 미검수`;
       store.finishRun(run, 'success', notices.length, message, warnings);
       results.push({
         source,

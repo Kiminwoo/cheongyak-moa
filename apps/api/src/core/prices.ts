@@ -5,6 +5,7 @@ import { HOME_BASE } from './normalization.js';
 import { getJSON } from './collectors.js';
 import { saveRaw } from './ingestion.js';
 import { inspectNotice, assertNoSecrets } from './data-quality.js';
+import { isActiveNotice, koreaToday } from '@cheongyak-moa/domain';
 
 export const PRICE_OPERATIONS: Record<string, { operation: string; amount: string }> = {
   getAPTLttotPblancDetail: { operation: 'getAPTLttotPblancMdl', amount: 'LTTOT_TOP_AMOUNT' },
@@ -93,7 +94,8 @@ export async function collectPrices(
     env = process.env,
     fetchFn = fetch,
     rawDir = 'data/raw',
-  }: { env?: Environment; fetchFn?: FetchJSON; rawDir?: string } = {},
+    today = koreaToday(),
+  }: { env?: Environment; fetchFn?: FetchJSON; rawDir?: string; today?: string } = {},
 ) {
   if (!env.APPLYHOME_SERVICE_KEY?.trim()) throw new Error('청약홈 인증키가 설정되지 않았습니다.');
   let key = env.APPLYHOME_SERVICE_KEY.trim();
@@ -107,6 +109,7 @@ export async function collectPrices(
     .filter(
       (notice) =>
         !notice.isDemo &&
+        isActiveNotice(notice, today) &&
         notice.sourceId === 'applyhome' &&
         notice.type !== 'rental' &&
         PRICE_OPERATIONS[notice.operation ?? ''],
