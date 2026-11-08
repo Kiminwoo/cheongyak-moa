@@ -34,6 +34,11 @@ export interface QualityIssue {
   severity: 'warning' | 'error';
 }
 export interface Notice {
+  pricing?: {
+    operation: string;
+    basis: 'model-maximum';
+    models: SupplyPrice[];
+  };
   id: string;
   sourceId: string;
   externalId: string;
@@ -67,6 +72,13 @@ export interface Notice {
   schedules?: Schedule[];
   quality?: QualityIssue[];
   provenance?: { method: CollectionMethod; reviewStatus: 'unverified' };
+}
+export interface SupplyPrice {
+  model: string;
+  housingType: string;
+  supplyArea: string | null;
+  units: number | null;
+  maximumWon: number | null;
 }
 export interface StoredNotice extends Notice {
   updatedAt: string;

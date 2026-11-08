@@ -6,7 +6,7 @@ import App from '../src/App.js';
 import { demoNotices } from '../../api/src/core/demo.js';
 import { matchNotice } from '@cheongyak-moa/domain';
 
-async function setup(t, { live = false } = {}) {
+async function setup(t, { live = false, pricing = false } = {}) {
   const w = new Window({ url: 'http://localhost:4310' });
   const prior = new Map();
   for (const [key, value] of Object.entries({
@@ -55,6 +55,18 @@ async function setup(t, { live = false } = {}) {
     notice.isDemo = false;
     notice.rules = [];
     notice.rulesComplete = false;
+    if (pricing) {
+      notice.type = 'sale';
+      notice.priceWon = null;
+      notice.pricing = {
+        basis: 'model-maximum',
+        operation: 'getAPTLttotPblancMdl',
+        models: [
+          { model: '1', housingType: '059A', supplyArea: '80.5', units: 10, maximumWon: 500000000 },
+          { model: '2', housingType: '084A', supplyArea: '112', units: 20, maximumWon: 700000000 },
+        ],
+      };
+    }
     notice.match = matchNotice(notice, {}, data.today);
     data.notices.push(notice);
   }
@@ -164,4 +176,16 @@ test('실제 공고 상세에 선호 비교와 자격 확인 상태를 함께 �
   assert.ok(detail.textContent.includes('보증금'));
   assert.ok(detail.textContent.includes('미입력'));
   assert.ok(container.querySelector('dialog').textContent.includes('공고 확인 필요'));
+});
+
+test('카드에 최고금액 범위를 표시하고 상세에 주택형별 금액과 기준을 표시한다', async (t) => {
+  const { container } = await setup(t, { live: true, pricing: true });
+  assert.ok(container.querySelector('.price-row').textContent.includes('주택형별 최고금액'));
+  assert.ok(container.querySelector('.price-main').textContent.includes('5억원 ~ 7억원'));
+  await act(async () => container.querySelector('.card-title').click());
+  const section = container.querySelector('section[aria-label="주택형별 공급 가격"]');
+  assert.ok(section.textContent.includes('059A'));
+  assert.ok(section.textContent.includes('084A'));
+  assert.equal(section.querySelectorAll('tbody tr').length, 2);
+  assert.ok(section.textContent.includes('실제 최저 분양가를 뜻하지 않습니다'));
 });

@@ -8,6 +8,7 @@ import { dirname, join, resolve } from 'node:path';
 import { Store, sources } from './core/store.js';
 import { matchNotice, validateProfile, koreaToday, REGIONS } from '@cheongyak-moa/domain';
 import { collect } from './core/collectors.js';
+import { collectPrices } from './core/prices.js';
 import { collectionConfig } from './core/config.js';
 import { summarizeQuality } from './core/data-quality.js';
 import { IMPORT_FORMATS } from './core/normalization.js';
@@ -189,6 +190,16 @@ export function createApp({
         // 응답 후 진행. 브라우저에서 상태를 새로 확인할 수 있도록 수집 이력을 기록합니다.
         send(202, { ok: true });
         collect(store, { env, fetchFn, rawDir: join(projectRoot, 'data', 'raw') })
+          .then(async (results) => {
+            if (
+              results.some((result) => result.source === 'applyhome' && result.status === 'success')
+            )
+              await collectPrices(store, {
+                env,
+                fetchFn,
+                rawDir: join(projectRoot, 'data', 'raw'),
+              });
+          })
           .catch(() =>
             console.error('수집 작업 초기화에 실패했습니다. 저장소 접근 상태를 확인하세요.'),
           )

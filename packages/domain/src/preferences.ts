@@ -70,7 +70,15 @@ export function comparePreferences(notice: Notice, profile: Profile): Preference
   if (notice.type === 'rental') {
     budget('deposit', '보증금', notice.depositWon, profile.depositBudget);
     budget('monthly', '월 임대료', notice.monthlyWon, profile.monthlyBudget);
-  } else budget('price', '표시 가격', notice.priceWon, profile.saleBudget);
+  } else {
+    budget('price', '표시 가격', notice.priceWon, profile.saleBudget);
+    const price = checks.at(-1);
+    if (price && notice.pricing?.models.length && profile.saleBudget != null) {
+      price.state = 'unknown';
+      price.message =
+        '주택형별 최고금액 제공 · 희망 주택형·층별 실제 금액으로 예산을 확인해 주세요';
+    }
+  }
   const active = checks.filter((check) => check.state !== 'unset');
   const state = active.some((check) => check.state === 'mismatch')
     ? 'mismatch'

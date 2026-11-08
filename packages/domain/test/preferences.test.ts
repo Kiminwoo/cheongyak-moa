@@ -6,6 +6,25 @@ import { demoNotices } from '../../../test/fixtures/notices.js';
 const today = '2026-11-08';
 const notice = { ...demoNotices(today)[0], isDemo: false, rules: [], rulesComplete: false };
 
+test('최고금액을 실제 최저가격으로 해석해 예산 불일치로 제외하지 않는다', () => {
+  const priced = {
+    ...notice,
+    type: 'sale',
+    pricing: {
+      basis: 'model-maximum',
+      operation: 'getAPTLttotPblancMdl',
+      models: [
+        { model: '1', housingType: '084A', supplyArea: null, units: 10, maximumWon: 700000000 },
+      ],
+    },
+  };
+  const result = matchNotice(priced, { saleBudget: 50000 }, today);
+  assert.equal(result.preference.checks.find((check) => check.field === 'price').state, 'unknown');
+  assert.equal(result.preference.state, 'unknown');
+  assert.ok(result.reasons.some((message) => message.includes('최고금액')));
+  assert.equal(result.status, 'review');
+});
+
 test('미입력과 비교 가능한 선호 일치를 구분하고 실제 자격은 확인 필요로 유지한다', () => {
   assert.equal(comparePreferences(notice, {}).state, 'unset');
   const result = matchNotice(notice, { regions: [notice.region], types: [notice.type] }, today);

@@ -6,6 +6,7 @@ import { koreaToday } from '@cheongyak-moa/domain';
 import { HOME_BASE, HOME_OPERATIONS, IMPORT_FORMATS, lhRows } from './normalization.js';
 import { collectionConfig } from './config.js';
 import { preparePayload, saveRaw } from './ingestion.js';
+import { inspectNotice } from './data-quality.js';
 export { HOME_OPERATIONS, normalizeHome, normalizeLH, lhRows } from './normalization.js';
 
 function keyValue(value: string): string {
@@ -179,7 +180,12 @@ export async function collect(
             );
         }
       }
-      const notices = [...staged.values()];
+      const notices = [...staged.values()].map((notice) => {
+        const existing = store.get(notice.id);
+        if (!existing?.pricing || existing.type !== notice.type) return notice;
+        const preserved = { ...notice, pricing: existing.pricing, priceBasis: existing.priceBasis };
+        return { ...preserved, quality: inspectNotice(preserved) };
+      });
       const changes = store.upsertBatch(notices);
       const warnings = notices.reduce((sum, n) => sum + (n.quality?.length ?? 0), 0);
       const message = `${config.from}~${config.to} 범위 ${notices.length}건 처리 · ${changes}건 신규·변경 · 원문 미검수`;

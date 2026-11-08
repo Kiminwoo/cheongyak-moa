@@ -32,6 +32,7 @@ interface NoticeActions {
 import React, { useEffect, useRef, useState } from 'react';
 import NoticeDataQuality from './NoticeDataQuality.js';
 import PreferenceDetails, { preferenceLabels } from './PreferenceDetails.js';
+import SupplyPrices, { supplyPriceText } from './SupplyPrices.js';
 import {
   matchLabels,
   typeLabels,
@@ -532,8 +533,14 @@ export function NoticeCard({
           </>
         ) : (
           <>
-            <span className="price-label">{n.isDemo ? '예시 가격' : '공급 가격'}</span>
-            <strong className="price-main">{money(n.priceWon)}</strong>
+            <span className="price-label">
+              {n.pricing?.models.length
+                ? '주택형별 최고금액'
+                : n.isDemo
+                  ? '예시 가격'
+                  : '공급 가격'}
+            </span>
+            <strong className="price-main">{supplyPriceText(n)}</strong>
           </>
         )}
       </div>
@@ -990,6 +997,7 @@ export function NoticeDetail({
         ))}
       </div>
       <NoticeDataQuality notice={n} />
+      <SupplyPrices notice={n} />
       <PreferenceDetails assessment={m.preference} />
       <section className="detail-section">
         <h3>{matchLabels[m.status]}</h3>
