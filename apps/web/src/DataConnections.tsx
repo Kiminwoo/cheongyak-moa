@@ -101,6 +101,19 @@ export default function DataConnections({
         API 응답을 받았다는 사실은 공고 내용을 검수했다는 의미가 아닙니다. 현재 전국 모든 기관이
         연동된 상태는 아닙니다.
       </p>
+      <div className="detail-alert">
+        SH·GH·지방공사는{' '}
+        <a
+          href="https://www.data.go.kr/data/15108420/openapi.do"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          마이홈 공공주택 모집공고 API
+        </a>
+        에 포함된 공공임대 자료를 공급기관명으로 분류합니다. 기관 홈페이지 자체 공고 전체가
+        아닙니다. 별도 활용 승인이 필요하며 MYHOME_SERVICE_KEY가 비어 있으면 기존 LH 키를
+        사용합니다. 응답이 정상이어도 해당 기관 공고가 없으면 0건으로 표시합니다.
+      </div>
       {quality && (
         <div className="quality-grid" aria-label="데이터 품질 현황">
           {[
@@ -140,7 +153,9 @@ export default function DataConnections({
                   : !s.configured
                     ? '인증키 미설정'
                     : latest?.status === 'success'
-                      ? 'API 응답 수신'
+                      ? latest.count === 0
+                        ? '응답 수신 · 해당 공고 0건'
+                        : 'API 응답 수신'
                       : latest?.status === 'failed'
                         ? '수집 실패'
                         : latest?.status === 'running'
@@ -166,6 +181,9 @@ export default function DataConnections({
                       {status}
                     </span>
                     <small>{latest ? dateTime(latest.startedAt) : 'API 수집 이력 없음'}</small>
+                    {['sh', 'gh', 'local'].includes(s.id) && (
+                      <small>수집 경로: 마이홈 API · 기관명 분류</small>
+                    )}
                   </td>
                   <td>
                     API {s.count - imported}건<small>파일 {imported}건</small>

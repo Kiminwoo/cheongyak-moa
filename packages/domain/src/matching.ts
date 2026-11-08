@@ -120,6 +120,11 @@ export function validateProfile(input: unknown, today = koreaToday()): Profile {
 }
 export function stage(notice: Notice, today = koreaToday()): NoticeStage {
   if (notice.cancelled) return 'cancelled';
+  if (
+    notice.provider === 'myhome' &&
+    /^(접수|신청|모집)\s*(마감|종료)$/.test(notice.sourceStatus ?? '')
+  )
+    return 'closed';
   if (notice.deadline && notice.deadline < today) return 'closed';
   if (!notice.starts || !notice.deadline) return 'unknown';
   return notice.starts > today ? 'upcoming' : 'open';
@@ -130,7 +135,7 @@ function ageAt(birth: string, basis: string): number {
   return age;
 }
 export function isActiveNotice(notice: Notice, today = koreaToday()): boolean {
-  return !['closed', 'cancelled'].includes(stage(notice, today));
+  return !notice.withdrawnFromProvider && !['closed', 'cancelled'].includes(stage(notice, today));
 }
 export function matchNotice(
   notice: Notice,

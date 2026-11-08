@@ -23,6 +23,8 @@
     "check": "npm run typecheck && npm run build && npm test && npm run test:ui",
     "lint": "node scripts/check-boundaries.mjs",
     "precollect": "npm run build:api",
+    "precollect:local": "npm run build:api",
+    "collect:local": "node --experimental-sqlite --env-file-if-exists=.env apps/api/dist/cli/local.mjs",
     "precollect:prices": "npm run build:api",
     "collect:prices": "node --experimental-sqlite --env-file-if-exists=.env apps/api/dist/cli/prices.mjs",
     "collect": "node --experimental-sqlite --env-file-if-exists=.env apps/api/dist/cli/collect.mjs",

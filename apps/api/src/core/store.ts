@@ -37,23 +37,23 @@ export const sources: Omit<SourceInfo, 'configured' | 'count'>[] = [
   {
     id: 'sh',
     name: 'SH',
-    scope: '서울 지역 자체 공고',
-    status: 'planned',
+    scope: '마이홈 API에 포함된 SH 공공임대 공고',
+    status: 'adapter',
     url: 'https://www.i-sh.co.kr/',
   },
   {
     id: 'gh',
     name: 'GH',
-    scope: '경기 지역 자체 공고',
-    status: 'planned',
+    scope: '마이홈 API에 포함된 GH 공공임대 공고',
+    status: 'adapter',
     url: 'https://www.gh.or.kr/',
   },
   {
     id: 'local',
     name: '지방공사·지자체',
-    scope: '기관별 조사·연동 예정',
-    status: 'planned',
-    url: null,
+    scope: '마이홈 API의 식별 가능한 지방 공급기관 공고',
+    status: 'adapter',
+    url: 'https://www.data.go.kr/data/15108420/openapi.do',
   },
 ];
 export class Store {

@@ -6,7 +6,7 @@ import App from '../src/App.js';
 import { demoNotices } from '../../api/src/core/demo.js';
 import { matchNotice } from '@cheongyak-moa/domain';
 
-async function setup(t, { live = false, pricing = false } = {}) {
+async function setup(t, { live = false, pricing = false, local = false } = {}) {
   const w = new Window({ url: 'http://localhost:4310' });
   const prior = new Map();
   for (const [key, value] of Object.entries({
@@ -47,6 +47,28 @@ async function setup(t, { live = false, pricing = false } = {}) {
     })),
   };
   const calls = [];
+  if (local) {
+    data.sources = ['sh', 'gh', 'local'].map((id) => ({
+      id,
+      name: id.toUpperCase(),
+      scope: '마이홈 공공임대',
+      configured: true,
+      count: 0,
+      status: 'adapter',
+      url: 'https://www.data.go.kr/data/15108420/openapi.do',
+    }));
+    data.runs = ['sh', 'gh', 'local'].map((sourceId, index) => ({
+      id: index,
+      sourceId,
+      method: 'api',
+      status: 'success',
+      count: 0,
+      message: '마이홈 공공임대 0건',
+      startedAt: '2026-11-08T00:00:00Z',
+      endedAt: '2026-11-08T00:00:00Z',
+      warnings: 0,
+    }));
+  }
   if (live) {
     const notice = structuredClone(data.notices[0]);
     notice.id = 'applyhome-live-test';
@@ -106,6 +128,17 @@ test('React 컴포넌트가 공고와 모바일 메뉴를 렌더링한다', asyn
   assert.equal(container.querySelectorAll('.mobile-nav button').length, 4);
   assert.ok(container.textContent.includes('실제 공고가 아닌'));
   assert.ok(container.querySelector('.header-actions button'));
+});
+
+test('기관별 마이홈 수집 경로와 정상 응답 0건을 연동 예정과 구분해서 표시한다', async (t) => {
+  const { container } = await setup(t, { local: true });
+  await act(async () => container.querySelector('.local-chip').click());
+  const panel = container.querySelector('#sources-panel');
+  assert.ok(panel.textContent.includes('마이홈 공공주택 모집공고 API'));
+  assert.ok(panel.textContent.includes('기관 홈페이지 자체 공고 전체가 아닙니다'));
+  assert.equal(panel.querySelectorAll('.source-table tbody tr').length, 3);
+  assert.ok(panel.textContent.includes('응답 수신 · 해당 공고 0건'));
+  assert.ok(!panel.textContent.includes('연동 예정'));
 });
 
 test('접수 중 통계 카드를 클릭하면 해당 공고만 표시하고 다시 클릭하거나 필터를 해제할 수 있다', async (t) => {

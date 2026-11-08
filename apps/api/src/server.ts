@@ -9,6 +9,7 @@ import { Store, sources } from './core/store.js';
 import { matchNotice, validateProfile, koreaToday, REGIONS } from '@cheongyak-moa/domain';
 import { collect } from './core/collectors.js';
 import { collectPrices } from './core/prices.js';
+import { collectLocal } from './core/local-collectors.js';
 import { collectionConfig } from './core/config.js';
 import { summarizeQuality } from './core/data-quality.js';
 import { IMPORT_FORMATS } from './core/normalization.js';
@@ -130,7 +131,9 @@ export function createApp({
           notices = store
             .all()
             .map((n) => ({ ...n, match: matchNotice(n, profile) }))
-            .filter((n) => !['closed', 'cancelled'].includes(n.match.stage));
+            .filter(
+              (n) => !n.withdrawnFromProvider && !['closed', 'cancelled'].includes(n.match.stage),
+            );
         const info = connection();
         return send(200, {
           profile,
@@ -141,7 +144,7 @@ export function createApp({
           quality: summarizeQuality(notices),
           sources: sources.map((s) => ({
             ...s,
-            configured: s.id === 'applyhome' || s.id === 'lh' ? info.configured[s.id] : false,
+            configured: info.configured[s.id],
             count: notices.filter((n) => !n.isDemo && n.sourceId === s.id).length,
           })),
           runs: store.runs(),
@@ -185,7 +188,7 @@ export function createApp({
       if (req.method === 'POST' && url.pathname === '/api/collect') {
         if (collecting) return send(409, { error: '수집이 이미 실행 중입니다.' });
         const config = collectionConfig(env);
-        if (!config.configured.applyhome && !config.configured.lh)
+        if (!Object.values(config.configured).some(Boolean))
           return send(400, {
             error: '.env에 공식 API 인증키를 설정하고 서버를 다시 시작해 주세요.',
           });
@@ -194,6 +197,7 @@ export function createApp({
         send(202, { ok: true });
         collect(store, { env, fetchFn, rawDir: join(projectRoot, 'data', 'raw') })
           .then(async (results) => {
+            await collectLocal(store, { env, fetchFn, rawDir: join(projectRoot, 'data', 'raw') });
             if (
               results.some((result) => result.source === 'applyhome' && result.status === 'success')
             )

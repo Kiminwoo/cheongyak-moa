@@ -14,6 +14,12 @@ export default function NoticeDataQuality({ notice: n }: { notice: MatchedNotice
               ? '외부 JSON 파일에서 가져온 자료입니다. 출처의 진위와 최신 여부는 검증되지 않았습니다.'
               : '공식 API 응답을 정규화한 자료입니다. 공고 원문과의 대조 검수는 아직 완료되지 않았습니다.'}
           </p>
+          {n.provider === 'myhome' && (
+            <p>
+              공급기관: {n.issuerName} · 수집 경로: 마이홈 공공주택 모집공고 API. 해당 기관
+              홈페이지의 모든 공고를 수집한 것은 아닙니다.
+            </p>
+          )}
         </section>
       )}
       {schedules.length > 0 && (

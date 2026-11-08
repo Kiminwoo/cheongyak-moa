@@ -84,7 +84,7 @@ export function apiOptions() {
     entryPoints: {
       server: join(root, 'apps/api/src/main.ts'),
       ...Object.fromEntries(
-        ['collect', 'prices', 'doctor', 'import-response', 'setup-env'].map((name) => [
+        ['collect', 'local', 'prices', 'doctor', 'import-response', 'setup-env'].map((name) => [
           'cli/' + name,
           join(root, `apps/api/src/cli/${name}.ts`),
         ]),

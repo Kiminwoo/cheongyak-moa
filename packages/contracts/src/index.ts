@@ -4,7 +4,7 @@ export type View = 'matching' | 'all' | 'calendar' | 'favorites' | 'sources';
 export type MatchStatus = 'review' | 'missing' | 'ineligible' | 'demo-match';
 export type NoticeStage = 'open' | 'upcoming' | 'closed' | 'unknown' | 'cancelled';
 export type CollectionMethod = 'api' | 'file-import';
-export type ApiSource = 'applyhome' | 'lh';
+export type ApiSource = 'applyhome' | 'lh' | 'sh' | 'gh' | 'local';
 export type Environment = Record<string, string | undefined>;
 
 export interface Profile {
@@ -34,6 +34,9 @@ export interface QualityIssue {
   severity: 'warning' | 'error';
 }
 export interface Notice {
+  issuerName?: string;
+  provider?: 'myhome';
+  withdrawnFromProvider?: boolean;
   pricing?: {
     operation: string;
     basis: 'model-maximum';
@@ -141,7 +144,7 @@ export interface ConnectionInfo extends CollectionConfig {
   maxImportBytes: number;
 }
 export interface SourceInfo {
-  id: string;
+  id: ApiSource;
   name: string;
   scope: string;
   status: 'adapter' | 'planned';
