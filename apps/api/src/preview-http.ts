@@ -13,22 +13,24 @@ const assets: Record<string, [string, string]> = {
   '/icons/apple-touch-icon.png': ['icons/apple-touch-icon.png', 'image/png'],
 };
 
-export function createPreviewHandler({
-  data,
-  webDirectory,
-  authorizationHash,
-  expiresAt,
-  now = Date.now,
-}: {
-  data: () => BootstrapData;
-  webDirectory: string;
-  authorizationHash: string;
-  expiresAt: number;
-  now?: () => number;
-}): RequestListener {
-  if (!/^[a-f0-9]{64}$/.test(authorizationHash) || !Number.isFinite(expiresAt))
+export type PreviewAccess =
+  | { publicReadOnly: true }
+  | { publicReadOnly?: false; authorizationHash: string; expiresAt: number };
+
+export function createPreviewHandler(
+  options: {
+    data: () => BootstrapData;
+    webDirectory: string;
+    now?: () => number;
+  } & PreviewAccess,
+): RequestListener {
+  const { data, webDirectory, now = Date.now } = options;
+  if (
+    !options.publicReadOnly &&
+    (!/^[a-f0-9]{64}$/.test(options.authorizationHash) || !Number.isFinite(options.expiresAt))
+  )
     throw new Error('Invalid preview credentials');
-  const expected = Buffer.from(authorizationHash, 'hex');
+  const expected = options.publicReadOnly ? null : Buffer.from(options.authorizationHash, 'hex');
   const digest = (value: string) => Buffer.from(previewHash(value), 'hex');
   // Bounded per-process limiter; do not trust forwarded client addresses or allocate
   // per-client state. Serverless instances do not share this counter.
@@ -54,22 +56,24 @@ export function createPreviewHandler({
       });
       res.end(value);
     };
-    if (now() >= expiresAt) return send(410, '{"error":"공유 시간이 종료되었습니다."}');
-    if (now() - windowStart >= 60000) {
-      failures = 0;
-      windowStart = now();
-    }
-    if (failures >= 30)
-      return send(429, '{"error":"잠시 후 다시 시도해 주세요."}', undefined, {
-        'Retry-After': '60',
-      });
-    const auth = req.headers.authorization || '';
-    if (auth.length > 256 || !timingSafeEqual(digest(auth), expected)) {
-      // Initial browser challenges do not count as password guesses.
-      if (auth) failures++;
-      return send(401, '{"error":"미리보기 비밀번호가 필요합니다."}', undefined, {
-        'WWW-Authenticate': 'Basic realm="CheongyakMoa Preview", charset="UTF-8"',
-      });
+    if (!options.publicReadOnly) {
+      if (now() >= options.expiresAt) return send(410, '{"error":"공유 시간이 종료되었습니다."}');
+      if (now() - windowStart >= 60000) {
+        failures = 0;
+        windowStart = now();
+      }
+      if (failures >= 30)
+        return send(429, '{"error":"잠시 후 다시 시도해 주세요."}', undefined, {
+          'Retry-After': '60',
+        });
+      const auth = req.headers.authorization || '';
+      if (auth.length > 256 || !expected || !timingSafeEqual(digest(auth), expected)) {
+        // Initial browser challenges do not count as password guesses.
+        if (auth) failures++;
+        return send(401, '{"error":"미리보기 비밀번호가 필요합니다."}', undefined, {
+          'WWW-Authenticate': 'Basic realm="CheongyakMoa Preview", charset="UTF-8"',
+        });
+      }
     }
     if (!['GET', 'HEAD'].includes(req.method || ''))
       return send(405, '{"error":"조회 전용 화면입니다."}', undefined, { Allow: 'GET, HEAD' });
