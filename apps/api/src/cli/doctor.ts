@@ -11,6 +11,9 @@ try {
     `LH 인증키: ${config.configured.lh ? '설정됨 · 승인 여부는 수집 시 확인' : '미설정'}`,
   );
   console.log('키 값은 출력하지 않습니다. 이 진단 명령은 외부 API를 호출하지 않습니다.');
+  console.log(
+    `마이홈(SH·GH·지방공사) 키: ${config.configured.local ? '설정됨 또는 LH 키 사용 · API 15108420 활용 승인 확인 필요' : '미설정'}`,
+  );
 } catch (error) {
   console.error(errorMessage(error));
   process.exitCode = 1;

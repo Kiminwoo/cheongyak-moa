@@ -501,6 +501,21 @@ input[type='checkbox'] {
   background: #edf3e6;
   border-color: #e0e8d5;
 }
+.stat-action {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+}
+.stat-action:hover,
+.stat-action.selected {
+  border-color: #68804d;
+}
+.stat-action:focus-visible {
+  outline: 2px solid #52634c;
+  outline-offset: 3px;
+}
 .search-row {
   display: flex;
   gap: 10px;
@@ -1583,6 +1598,43 @@ dialog::backdrop {
   .calendar-day {
     padding: 3px;
   }
+}
+.preference-summary {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 12px 0 8px;
+  color: #52634c;
+}
+.preference-summary.mismatch {
+  color: #8c4b30;
+}
+.preference-checks {
+  list-style: none;
+  padding: 0;
+}
+.preference-checks li {
+  padding: 12px 0;
+  border-bottom: 1px solid #e4e9df;
+}
+.preference-checks li > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.preference-checks li p {
+  margin: 6px 0 0;
+}
+.preference-state {
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  background: #eef1e9;
+  color: #52634c;
+}
+.preference-state.mismatch {
+  background: #fbede5;
+  color: #8c4b30;
 }
 @media (prefers-reduced-motion: reduce) {
   * {

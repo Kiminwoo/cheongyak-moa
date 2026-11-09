@@ -71,6 +71,7 @@ test('수집·원본 저장·재수집 중복 방지·키 비노출', async () =
   try {
     let calls = 0;
     const options = {
+      today: '2026-11-08',
       env: { APPLYHOME_SERVICE_KEY: 'test-secret' },
       rawDir: dir,
       fetchFn: async (url) => {
@@ -81,9 +82,9 @@ test('수집·원본 저장·재수집 중복 방지·키 비노출', async () =
     };
     const r = await collect(s, options);
     assert.equal(r[0].status, 'success');
-    assert.equal(calls, 3);
+    assert.equal(calls, 5);
     await collect(s, options);
-    assert.equal(s.all().length, 3);
+    assert.equal(s.all().length, 5);
     assert.ok(s.all().every((n) => s.versions(n.id).length === 1));
     for (const file of readdirSync(join(dir, 'applyhome', '1')))
       assert.ok(!readFileSync(join(dir, 'applyhome', '1', file), 'utf8').includes('test-secret'));
@@ -105,6 +106,36 @@ test('외부 인증 실패 시 기존 데이터와 인증키를 보호한다', a
     assert.ok(!JSON.stringify(s.runs()).includes('private-key'));
   } finally {
     s.close();
+  }
+});
+
+test('신규 마감 공고는 저장하지 않고 기존 공고의 마감 정정은 보존한다', async () => {
+  const s = new Store(':memory:', { seed: false });
+  const dir = mkdtempSync(join(tmpdir(), 'moa-active-'));
+  try {
+    const existing = normalizeHome(row, 'getAPTLttotPblancDetail', 'sale', 'APT');
+    s.upsert(existing);
+    s.favorite(existing.id, true);
+    const result = await collect(s, {
+      today: '2026-11-08',
+      env: { APPLYHOME_SERVICE_KEY: 'fake-key' },
+      rawDir: dir,
+      fetchFn: async () => ({
+        ok: true,
+        json: async () => ({
+          data: [{ ...row, RCEPT_BGNDE: '2026-11-01', RCEPT_ENDDE: '2026-11-07' }],
+          matchCount: 1,
+        }),
+      }),
+    });
+    assert.equal(result[0].count, 0);
+    assert.equal(s.all().length, 1);
+    assert.equal(s.get(existing.id).deadline, '2026-11-07');
+    assert.equal(s.get(existing.id).favorite, true);
+    assert.equal(s.versions(existing.id).length, 2);
+  } finally {
+    s.close();
+    rmSync(dir, { recursive: true, force: true });
   }
 });
 test('LH 유형별 목록을 수집하되 접수 일정은 추정하지 않는다', async () => {

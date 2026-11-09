@@ -5,7 +5,10 @@ import type {
   Profile,
   CollectionRun,
   CollectionMethod,
+  CoverageUnit,
 } from '@cheongyak-moa/contracts';
+import { COVERAGE_UNITS } from './coverage.js';
+import type { UnitSpec, UnitAttempt } from './coverage.js';
 interface DbNotice {
   body: string;
   updated_at: string;
@@ -23,7 +26,7 @@ export const sources: Omit<SourceInfo, 'configured' | 'count'>[] = [
   {
     id: 'applyhome',
     name: '청약홈',
-    scope: 'APT·무순위·오피스텔 등',
+    scope: 'APT·잔여세대·오피스텔 등·공공지원 민간임대·임의공급',
     status: 'adapter',
     url: 'https://www.data.go.kr/data/15098547/openapi.do',
   },
@@ -37,23 +40,23 @@ export const sources: Omit<SourceInfo, 'configured' | 'count'>[] = [
   {
     id: 'sh',
     name: 'SH',
-    scope: '서울 지역 자체 공고',
-    status: 'planned',
+    scope: '마이홈 공공임대·공식 게시판 주택 모집',
+    status: 'adapter',
     url: 'https://www.i-sh.co.kr/',
   },
   {
     id: 'gh',
     name: 'GH',
-    scope: '경기 지역 자체 공고',
-    status: 'planned',
+    scope: '마이홈 공공임대·게시판 접근 정책 확인',
+    status: 'adapter',
     url: 'https://www.gh.or.kr/',
   },
   {
     id: 'local',
     name: '지방공사·지자체',
-    scope: '기관별 조사·연동 예정',
-    status: 'planned',
-    url: null,
+    scope: '마이홈 API의 식별 가능한 지방 공급기관 공고',
+    status: 'adapter',
+    url: 'https://www.data.go.kr/data/15108420/openapi.do',
   },
 ];
 export class Store {
@@ -68,6 +71,9 @@ export class Store {
       CREATE TABLE IF NOT EXISTS favorites(notice_id TEXT PRIMARY KEY REFERENCES notices(id));
       CREATE TABLE IF NOT EXISTS collection_runs(id INTEGER PRIMARY KEY, source_id TEXT NOT NULL, status TEXT NOT NULL, count INTEGER NOT NULL DEFAULT 0, message TEXT, started_at TEXT NOT NULL, ended_at TEXT);
       CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);`);
+    this.db.exec(
+      'CREATE TABLE IF NOT EXISTS collection_units(source_id TEXT NOT NULL, unit TEXT NOT NULL, body TEXT NOT NULL, PRIMARY KEY(source_id,unit))',
+    );
     const runColumns = new Set(
       this.db
         .prepare('PRAGMA table_info(collection_runs)')
@@ -208,5 +214,69 @@ export class Store {
   }
   close() {
     this.db.close();
+  }
+  beginUnit(spec: UnitSpec, from: string | null = null, to: string | null = null): void {
+    const previous = this.unitAttempt(spec.sourceId, spec.unit);
+    const attempt: UnitAttempt = {
+      status: 'running',
+      fetchedCount: 0,
+      activeCount: 0,
+      from,
+      to,
+      startedAt: new Date().toISOString(),
+      endedAt: null,
+      lastSuccessAt: previous?.lastSuccessAt ?? null,
+      errorCode: null,
+    };
+    this.db
+      .prepare(
+        'INSERT INTO collection_units VALUES(?,?,?) ON CONFLICT(source_id,unit) DO UPDATE SET body=excluded.body',
+      )
+      .run(spec.sourceId, spec.unit, JSON.stringify(attempt));
+  }
+  finishUnit(
+    sourceId: string,
+    unit: string,
+    status: 'success' | 'failed',
+    fetchedCount: number,
+    activeCount: number,
+    code: string | null = null,
+  ): void {
+    const old = this.unitAttempt(sourceId, unit);
+    if (!old) throw new Error('수집 단위 시작 이력이 없습니다.');
+    const now = new Date().toISOString();
+    const body: UnitAttempt = {
+      ...old,
+      status,
+      fetchedCount,
+      activeCount,
+      errorCode: code,
+      endedAt: now,
+      lastSuccessAt: status === 'success' ? now : old.lastSuccessAt,
+    };
+    this.db
+      .prepare('UPDATE collection_units SET body=? WHERE source_id=? AND unit=?')
+      .run(JSON.stringify(body), sourceId, unit);
+  }
+  private unitAttempt(sourceId: string, unit: string): UnitAttempt | undefined {
+    const row = this.db
+      .prepare('SELECT body FROM collection_units WHERE source_id=? AND unit=?')
+      .get(sourceId, unit);
+    return row ? (JSON.parse(String(row.body)) as UnitAttempt) : undefined;
+  }
+  coverage(): CoverageUnit[] {
+    return COVERAGE_UNITS.map((spec) => ({
+      ...spec,
+      status: spec.implemented ? 'not-run' : 'planned',
+      fetchedCount: null,
+      activeCount: null,
+      from: null,
+      to: null,
+      startedAt: null,
+      endedAt: null,
+      lastSuccessAt: null,
+      errorCode: null,
+      ...this.unitAttempt(spec.sourceId, spec.unit),
+    }));
   }
 }

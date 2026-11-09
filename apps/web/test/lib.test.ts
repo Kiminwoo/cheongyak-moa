@@ -24,10 +24,7 @@ test('프런트 검색은 지역·검색어·마감·데이터 구분을 함께 
     selectNotices(notices, { ...defaultFilters, dataMode: 'live' }, 'matching').length,
     0,
   );
-  assert.equal(
-    selectNotices(notices, { ...defaultFilters, includeClosed: true }, 'matching').length,
-    9,
-  );
+  assert.equal(selectNotices(notices, defaultFilters, 'matching').length, 8);
 });
 test('관심 목록과 자격 상태 필터는 원본 데이터를 바꾸지 않는다', () => {
   const input = notices.map((n, i) => ({ ...n, favorite: i === 0 }));
@@ -44,6 +41,40 @@ test('미확인 마감일은 임박순 정렬 뒤에 남는다', () => {
   const list = selectNotices([...notices, missing], { ...defaultFilters, sort: 'deadline' }, 'all');
   assert.equal(list.at(-1).id, 'missing');
   assert.equal(deadlineText(missing, today), '접수일 원문 확인');
+});
+
+test('접수 중 필터는 예정·마감·취소·미확인 일정을 제외한다', () => {
+  const input = ['open', 'upcoming', 'closed', 'cancelled', 'unknown'].map((stage) => ({
+    ...notices[0],
+    id: stage,
+    match: { ...notices[0].match, stage },
+  }));
+  const filters = { ...defaultFilters, openOnly: true };
+  assert.deepEqual(
+    selectNotices(input, filters, 'matching').map((notice) => notice.id),
+    ['open'],
+  );
+  assert.equal(selectNotices(input, filters, 'matching', { stage: false }).length, 3);
+  assert.equal(selectNotices(input, { ...filters, region: '제주' }, 'matching').length, 0);
+});
+
+test('선호 불일치 제외는 미확인 공고를 숨기지 않고 추천순은 불일치를 뒤로 보낸다', () => {
+  const profile = { regions: ['서울'] };
+  const input = ['제주', '전국', '서울'].map((region) => {
+    const n = { ...notices[0], id: region, region };
+    return { ...n, match: matchNotice(n, profile, today) };
+  });
+  assert.deepEqual(
+    selectNotices(input, defaultFilters, 'matching').map((n) => n.region),
+    ['서울', '전국', '제주'],
+  );
+  assert.deepEqual(
+    selectNotices(input, { ...defaultFilters, excludeMismatch: true }, 'matching').map(
+      (n) => n.region,
+    ),
+    ['서울', '전국'],
+  );
+  assert.equal(input.length, 3);
 });
 test('표시 금액은 0원과 미확인 금액을 구분한다', () => {
   assert.equal(money(null), '금액 미확인');

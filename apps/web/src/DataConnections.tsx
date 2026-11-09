@@ -7,6 +7,8 @@ import { dateTime } from './lib.js';
 export default function DataConnections({
   data,
   onCollect,
+  onBoards,
+  onRetry,
   onRefresh,
   onImport,
   onSetup,
@@ -15,6 +17,8 @@ export default function DataConnections({
 }: {
   data: BootstrapData;
   onCollect: () => void;
+  onBoards?: () => void;
+  onRetry?: () => void;
   onRefresh: () => void;
   onImport: (payload: ImportInput) => Promise<void>;
   onSetup: () => void;
@@ -101,10 +105,24 @@ export default function DataConnections({
         API 응답을 받았다는 사실은 공고 내용을 검수했다는 의미가 아닙니다. 현재 전국 모든 기관이
         연동된 상태는 아닙니다.
       </p>
+      <div className="detail-alert">
+        SH·GH·지방공사는{' '}
+        <a
+          href="https://www.data.go.kr/data/15108420/openapi.do"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          마이홈 공공주택 모집공고 API
+        </a>
+        에 포함된 공공임대 자료를 공급기관명으로 분류합니다. 기관 홈페이지 자체 공고 전체가
+        아닙니다. 별도 활용 승인이 필요하며 MYHOME_SERVICE_KEY가 비어 있으면 기존 LH 키를
+        사용합니다. 응답이 정상이어도 해당 기관 공고가 없으면 0건으로 표시합니다.
+      </div>
       {quality && (
         <div className="quality-grid" aria-label="데이터 품질 현황">
           {[
             ['API 수집', quality.apiCount],
+            ['공식 게시판', quality.webCount],
             ['파일 가져오기', quality.importedCount],
             ['확인할 공고', quality.needsReview],
             ['접수일 미확인', quality.missingSchedule],
@@ -119,8 +137,65 @@ export default function DataConnections({
           ))}
         </div>
       )}
+      {!!data.coverage?.length && (
+        <section className="detail-section" aria-label="기관·유형별 수집 범위">
+          <h3>기관·유형별 수집 범위</h3>
+          <p>
+            성공은 표시된 조회 범위의 응답 검증을 뜻합니다. 전국 모든 기관·기간의 공고가 수집됐다는
+            뜻은 아닙니다. 미실행·미연동 유형을 함께 확인하세요.
+          </p>
+          <div className="table-scroll">
+            <table className="source-table" aria-label="유형별 수집 현황">
+              <thead>
+                <tr>
+                  <th>기관·유형</th>
+                  <th>최근 시도</th>
+                  <th>조회 범위·건수</th>
+                  <th>최근 성공</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.coverage.map((unit) => (
+                  <tr key={`${unit.sourceId}:${unit.unit}`}>
+                    <td>
+                      {data.sources.find((s) => s.id === unit.sourceId)?.name || unit.sourceId} ·{' '}
+                      {unit.label}
+                      <small>
+                        {unit.channel === 'api' ? 'API' : '공식 웹'} · {unit.scope}
+                      </small>
+                    </td>
+                    <td>
+                      {
+                        {
+                          'not-run': '미실행',
+                          planned: '미연동',
+                          running: '수집 중',
+                          success: '응답 검증 성공',
+                          failed: '실패 · 기존 자료 유지',
+                        }[unit.status]
+                      }
+                      <small>{unit.errorCode || ''}</small>
+                    </td>
+                    <td>
+                      {unit.from && unit.to ? `${unit.from}~${unit.to}` : 'API·게시판 제공 범위'}
+                      <small>
+                        조회 {unit.fetchedCount ?? '-'}행 · 활성 {unit.activeCount ?? '-'}건
+                      </small>
+                    </td>
+                    <td>{unit.lastSuccessAt ? dateTime(unit.lastSuccessAt) : '검증 이력 없음'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="helper">
+            마이홈의 조회 행수는 공통 응답 기준입니다. 기관별 행수를 합산하지 않습니다. 실패한
+            시도의 활성 0건은 기존 저장 공고가 없다는 뜻이 아닙니다.
+          </p>
+        </section>
+      )}
       <div className="table-scroll">
-        <table className="source-table">
+        <table className="source-table" aria-label="기관별 수집 현황">
           <thead>
             <tr>
               <th>출처·활용 신청</th>
@@ -131,16 +206,16 @@ export default function DataConnections({
           </thead>
           <tbody>
             {data.sources.map((s) => {
-              const latest = data.runs.find(
-                (r) => r.sourceId === s.id && r.method !== 'file-import',
-              );
+              const latest = data.runs.find((r) => r.sourceId === s.id && r.method === 'api');
               const status =
                 s.status === 'planned'
                   ? '연동 예정'
                   : !s.configured
                     ? '인증키 미설정'
                     : latest?.status === 'success'
-                      ? 'API 응답 수신'
+                      ? latest.count === 0
+                        ? '응답 수신 · 해당 공고 0건'
+                        : 'API 응답 수신'
                       : latest?.status === 'failed'
                         ? '수집 실패'
                         : latest?.status === 'running'
@@ -149,6 +224,10 @@ export default function DataConnections({
               const imported = data.notices.filter(
                 (n) => !n.isDemo && n.sourceId === s.id && n.provenance?.method === 'file-import',
               ).length;
+              const web = data.notices.filter(
+                (n) => !n.isDemo && n.sourceId === s.id && n.provenance?.method === 'web',
+              ).length;
+              const boardRun = data.runs.find((r) => r.sourceId === s.id && r.method === 'web');
               return (
                 <tr key={s.id}>
                   <td>
@@ -166,9 +245,29 @@ export default function DataConnections({
                       {status}
                     </span>
                     <small>{latest ? dateTime(latest.startedAt) : 'API 수집 이력 없음'}</small>
+                    {['sh', 'gh', 'local'].includes(s.id) && (
+                      <small>수집 경로: 마이홈 API · 기관명 분류</small>
+                    )}
+                    {boardRun && (
+                      <small>
+                        게시판:{' '}
+                        {boardRun.errorCode === 'robots_denied'
+                          ? '기관 자동 수집 제한'
+                          : boardRun.status === 'success'
+                            ? '수집 완료'
+                            : boardRun.status === 'running'
+                              ? '수집 중'
+                              : '수집 실패'}
+                        {' · '}
+                        {boardRun.message}
+                      </small>
+                    )}
                   </td>
                   <td>
-                    API {s.count - imported}건<small>파일 {imported}건</small>
+                    API {s.count - imported - web}건
+                    <small>
+                      게시판 {web}건 · 파일 {imported}건
+                    </small>
                   </td>
                 </tr>
               );
@@ -183,7 +282,25 @@ export default function DataConnections({
         <button className="secondary" disabled={disabled} onClick={onRefresh}>
           상태 새로고침
         </button>
+        {onBoards && (
+          <button className="secondary" disabled={disabled} onClick={onBoards}>
+            SH·GH 게시판 수집
+          </button>
+        )}
+        {onRetry && (
+          <button
+            className="secondary"
+            disabled={disabled || !data.coverage?.some((unit) => unit.status === 'failed')}
+            onClick={onRetry}
+          >
+            실패 유형 재수집
+          </button>
+        )}
       </div>
+      <p className="helper">
+        게시판은 기관의 자동 접근 정책을 먼저 확인합니다. 제한된 기관은 수집하지 않으며,
+        첨부파일에만 있는 일정·금액은 미확인으로 표시합니다.
+      </p>
       <details className="detail-section">
         <summary>응답 JSON 파일 가져오기</summary>
         <p>
@@ -233,10 +350,14 @@ export default function DataConnections({
       {data.runs.length ? (
         data.runs.map((r) => (
           <div className="run" key={r.id}>
-            <strong>{r.sourceId === 'applyhome' ? '청약홈' : 'LH'}</strong>
+            <strong>{data.sources.find((s) => s.id === r.sourceId)?.name || r.sourceId}</strong>
             <span>
-              {r.method === 'file-import' ? '파일 가져오기' : 'API 수집'} ·{' '}
-              {{ running: '진행 중', success: '완료', failed: '실패' }[r.status] || r.status} ·{' '}
+              {r.method === 'file-import'
+                ? '파일 가져오기'
+                : r.method === 'web'
+                  ? '공식 게시판'
+                  : 'API 수집'}{' '}
+              · {{ running: '진행 중', success: '완료', failed: '실패' }[r.status] || r.status} ·{' '}
               {r.count}건 처리
             </span>
             <small>

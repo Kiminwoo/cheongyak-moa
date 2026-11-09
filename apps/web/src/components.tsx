@@ -10,11 +10,13 @@ import type {
 import type { ReactNode, RefObject, FormEvent } from 'react';
 import type { CalendarCell } from './lib.js';
 interface NavigationProps {
+  readOnly?: boolean;
   view: View;
   onNavigate: (view: View) => void;
   favoriteCount: number;
 }
 interface SidebarProps {
+  readOnly?: boolean;
   profile: Profile;
   regions: string[];
   filters: Filters;
@@ -24,6 +26,7 @@ interface SidebarProps {
   onSources: () => void;
 }
 interface NoticeActions {
+  readOnly?: boolean;
   notice: MatchedNotice;
   onFavorite: (id: string) => void;
   pending: boolean;
@@ -31,6 +34,8 @@ interface NoticeActions {
 }
 import React, { useEffect, useRef, useState } from 'react';
 import NoticeDataQuality from './NoticeDataQuality.js';
+import PreferenceDetails, { preferenceLabels } from './PreferenceDetails.js';
+import SupplyPrices, { supplyPriceText } from './SupplyPrices.js';
 import {
   matchLabels,
   typeLabels,
@@ -58,6 +63,7 @@ export function Header({
   favoriteCount,
   onInstall,
   installed,
+  readOnly,
 }: NavigationProps & { onInstall: () => void; installed: boolean }) {
   return (
     <header className="header">
@@ -69,22 +75,26 @@ export function Header({
           </span>
         </a>
         <nav className="desktop-nav" aria-label="주 메뉴">
-          {navigation.map(([id, label]) => (
-            <button
-              key={id}
-              className={`nav ${view === id ? 'active' : ''}`}
-              aria-current={view === id ? 'page' : undefined}
-              onClick={() => onNavigate(id)}
-            >
-              {label}
-              {id === 'favorites' && <span>{favoriteCount}</span>}
-            </button>
-          ))}
+          {navigation
+            .filter(([id]) => !readOnly || !['matching', 'favorites'].includes(id))
+            .map(([id, label]) => (
+              <button
+                key={id}
+                className={`nav ${view === id ? 'active' : ''}`}
+                aria-current={view === id ? 'page' : undefined}
+                onClick={() => onNavigate(id)}
+              >
+                {label}
+                {id === 'favorites' && <span>{favoriteCount}</span>}
+              </button>
+            ))}
         </nav>
         <div className="header-actions">
-          <button className="install-button" onClick={onInstall}>
-            {installed ? '앱 사용 안내' : '앱 설치 안내'} <span aria-hidden="true">↧</span>
-          </button>
+          {!readOnly && (
+            <button className="install-button" onClick={onInstall}>
+              {installed ? '앱 사용 안내' : '앱 설치 안내'} <span aria-hidden="true">↧</span>
+            </button>
+          )}
           <button
             className="local-chip"
             onClick={() => onNavigate('sources')}
@@ -99,28 +109,30 @@ export function Header({
   );
 }
 
-export function MobileNavigation({ view, onNavigate, favoriteCount }: NavigationProps) {
+export function MobileNavigation({ view, onNavigate, favoriteCount, readOnly }: NavigationProps) {
   return (
     <nav className="mobile-nav" aria-label="모바일 주 메뉴">
-      {navigation.map(([id, label, icon]) => (
-        <button
-          key={id}
-          className={view === id ? 'active' : ''}
-          aria-current={view === id ? 'page' : undefined}
-          onClick={() => onNavigate(id)}
-        >
-          <span className="mobile-nav-icon" aria-hidden="true">
-            {icon}
-            {id === 'favorites' && favoriteCount > 0 && <small>{favoriteCount}</small>}
-          </span>
-          {label}
-        </button>
-      ))}
+      {navigation
+        .filter(([id]) => !readOnly || !['matching', 'favorites'].includes(id))
+        .map(([id, label, icon]) => (
+          <button
+            key={id}
+            className={view === id ? 'active' : ''}
+            aria-current={view === id ? 'page' : undefined}
+            onClick={() => onNavigate(id)}
+          >
+            <span className="mobile-nav-icon" aria-hidden="true">
+              {icon}
+              {id === 'favorites' && favoriteCount > 0 && <small>{favoriteCount}</small>}
+            </span>
+            {label}
+          </button>
+        ))}
     </nav>
   );
 }
 
-export function Hero({ onProfile }: { onProfile: () => void }) {
+export function Hero({ onProfile, readOnly }: { onProfile: () => void; readOnly?: boolean }) {
   return (
     <section className="hero" aria-labelledby="hero-title">
       <div className="hero-copy">
@@ -137,9 +149,11 @@ export function Hero({ onProfile }: { onProfile: () => void }) {
           <br />
           여러 기관의 청약을 한곳에서 차근차근 살펴보세요.
         </p>
-        <button className="hero-link" onClick={onProfile}>
-          내 조건 설정하기 <span aria-hidden="true">↗</span>
-        </button>
+        {!readOnly && (
+          <button className="hero-link" onClick={onProfile}>
+            내 조건 설정하기 <span aria-hidden="true">↗</span>
+          </button>
+        )}
       </div>
       <div className="hero-art" aria-hidden="true">
         <svg viewBox="0 0 600 300" fill="none">
@@ -237,6 +251,7 @@ export function Sidebar({
   onReset,
   onProfile,
   onSources,
+  readOnly,
 }: SidebarProps) {
   const [expanded, setExpanded] = useState(false);
   const entries = [
@@ -250,34 +265,38 @@ export function Sidebar({
   ];
   return (
     <aside className="sidebar" aria-label="나의 조건과 검색 필터">
-      <div className="side-heading">
-        <div>
-          <p className="eyebrow">MY CONDITIONS</p>
-          <h2>나의 청약 조건</h2>
-        </div>
-        <span className="round-icon" aria-hidden="true">
-          ⌁
-        </span>
-      </div>
-      <div id="profile-summary">
-        <div className="summary-items">
-          {entries.map(([label, value]) => (
-            <div className="summary-item" key={label}>
-              <span>{label}</span>
-              <strong>{value}</strong>
+      {!readOnly && (
+        <>
+          <div className="side-heading">
+            <div>
+              <p className="eyebrow">MY CONDITIONS</p>
+              <h2>나의 청약 조건</h2>
             </div>
-          ))}
-        </div>
-      </div>
-      <button className="primary full" onClick={onProfile}>
-        {Object.keys(profile).length ? '내 조건 수정하기' : '내 조건 설정하기'}{' '}
-        <span aria-hidden="true">＋</span>
-      </button>
-      <p className="side-footnote">
-        조건을 입력할수록
-        <br />
-        추천 이유를 자세히 알려드려요.
-      </p>
+            <span className="round-icon" aria-hidden="true">
+              ⌁
+            </span>
+          </div>
+          <div id="profile-summary">
+            <div className="summary-items">
+              {entries.map(([label, value]) => (
+                <div className="summary-item" key={label}>
+                  <span>{label}</span>
+                  <strong>{value}</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+          <button className="primary full" onClick={onProfile}>
+            {Object.keys(profile).length ? '내 조건 수정하기' : '내 조건 설정하기'}{' '}
+            <span aria-hidden="true">＋</span>
+          </button>
+          <p className="side-footnote">
+            조건을 입력할수록
+            <br />
+            추천 이유를 자세히 알려드려요.
+          </p>
+        </>
+      )}
       <button
         className="mobile-filter-toggle secondary"
         aria-expanded={expanded}
@@ -329,17 +348,18 @@ export function Sidebar({
           <option value="live">수집·가져온 공고</option>
           <option value="both">전체 · 예시 포함</option>
         </select>
-        <label className="check-label">
-          <input
-            type="checkbox"
-            checked={filters.includeClosed}
-            onChange={(e) => onFilter('includeClosed', e.target.checked)}
-          />{' '}
-          마감·취소 공고도 보기
-        </label>
         <button className="reset-button" onClick={onReset}>
           ↻ 검색 필터 초기화
         </button>
+        <label className="check-label">
+          <input
+            type="checkbox"
+            checked={filters.excludeMismatch}
+            onChange={(e) => onFilter('excludeMismatch', e.target.checked)}
+          />{' '}
+          선호 조건 불일치 제외
+        </label>
+        <p className="helper">금액·지역 미확인 공고는 확인 대상으로 남깁니다.</p>
       </div>
       <div className="coverage-card">
         <span className="mini-label">조금씩, 더 넓게</span>
@@ -360,9 +380,13 @@ export function Sidebar({
 export function Stats({
   notices,
   favoriteCount,
+  openOnly,
+  onOpenToggle,
 }: {
   notices: MatchedNotice[];
   favoriteCount: number;
+  openOnly: boolean;
+  onOpenToggle: () => void;
 }) {
   const entries = [
     ['살펴볼 청약', notices.length, '⌂'],
@@ -371,20 +395,37 @@ export function Stats({
   ];
   return (
     <div className="stats">
-      {entries.map(([label, count, icon], i) => (
-        <div className={`stat ${i === 1 ? 'highlight' : ''}`} key={label}>
-          <div>
-            <span className="stat-label">{label}</span>
-            <strong>
-              {count}
-              <small>건</small>
-            </strong>
+      {entries.map(([label, count, icon], i) => {
+        const content = (
+          <>
+            <div>
+              <span className="stat-label">{label}</span>
+              <strong>
+                {count}
+                <small>건</small>
+              </strong>
+            </div>
+            <span className="stat-icon" aria-hidden="true">
+              {icon}
+            </span>
+          </>
+        );
+        return i === 1 ? (
+          <button
+            key={label}
+            type="button"
+            className={`stat highlight stat-action ${openOnly ? 'selected' : ''}`}
+            aria-pressed={openOnly}
+            onClick={onOpenToggle}
+          >
+            {content}
+          </button>
+        ) : (
+          <div className="stat" key={label}>
+            {content}
           </div>
-          <span className="stat-icon" aria-hidden="true">
-            {icon}
-          </span>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -426,6 +467,15 @@ export function ListingTools({
         </select>
       </div>
       <div className="list-toolbar">
+        {filters.openOnly && (
+          <button
+            className="pill active"
+            aria-label="접수 중 필터 해제"
+            onClick={() => onFilter('openOnly', false)}
+          >
+            지금 접수 중만 보기 ×
+          </button>
+        )}
         <div className="filter-pills" aria-label="자격 점검 상태">
           {(
             [
@@ -522,11 +572,20 @@ export function NoticeCard({
           </>
         ) : (
           <>
-            <span className="price-label">{n.isDemo ? '예시 가격' : '공급 가격'}</span>
-            <strong className="price-main">{money(n.priceWon)}</strong>
+            <span className="price-label">
+              {n.pricing?.models.length
+                ? '주택형별 최고금액'
+                : n.isDemo
+                  ? '예시 가격'
+                  : '공급 가격'}
+            </span>
+            <strong className="price-main">{supplyPriceText(n)}</strong>
           </>
         )}
       </div>
+      <p className={`preference-summary ${m.preference.state}`}>
+        {preferenceLabels[m.preference.state]}
+      </p>
       <div className={`match-box ${cls}`}>
         <div className="match-title">
           <span aria-hidden="true">
@@ -554,11 +613,13 @@ export function NoticeCard({
 }
 
 export function EmptyState({
+  openOnly,
   live,
   view,
   onSources,
   onReset,
 }: {
+  openOnly: boolean;
   live: boolean;
   view: View;
   onSources: () => void;
@@ -570,21 +631,25 @@ export function EmptyState({
         ⌂
       </span>
       <h3>
-        {live
-          ? '공식 공고를 확인할 준비가 되었어요'
-          : view === 'favorites'
-            ? '저장한 공고가 없거나 필터 밖에 있어요'
-            : '선택한 조건의 공고가 없어요'}
+        {openOnly
+          ? '지금 접수 중인 공고가 없어요'
+          : live
+            ? '공식 공고를 확인할 준비가 되었어요'
+            : view === 'favorites'
+              ? '저장한 공고가 없거나 필터 밖에 있어요'
+              : '선택한 조건의 공고가 없어요'}
       </h3>
       <p>
-        {live
-          ? 'API 연결 상태와 수집 범위를 확인하거나 검색 필터를 넓혀보세요.'
-          : view === 'favorites'
-            ? '공고의 북마크를 눌러 저장하거나 필터를 초기화해 보세요.'
-            : '검색어와 필터를 넓혀보세요. 수집 범위 밖의 공고는 결과에 포함되지 않아요.'}
+        {openOnly
+          ? '현재 검색 조건에서 접수 중으로 확인된 공고가 없습니다. 접수 예정·일정 미확인 공고는 포함하지 않습니다.'
+          : live
+            ? 'API 연결 상태와 수집 범위를 확인하거나 검색 필터를 넓혀보세요.'
+            : view === 'favorites'
+              ? '공고의 북마크를 눌러 저장하거나 필터를 초기화해 보세요.'
+              : '검색어와 필터를 넓혀보세요. 수집 범위 밖의 공고는 결과에 포함되지 않아요.'}
       </p>
-      <button className="secondary" onClick={live ? onSources : onReset}>
-        {live ? '데이터 현황 보기' : '필터 초기화'}
+      <button className="secondary" onClick={openOnly ? onReset : live ? onSources : onReset}>
+        {openOnly ? '접수 중 필터 해제' : live ? '데이터 현황 보기' : '필터 초기화'}
       </button>
     </div>
   );
@@ -920,10 +985,12 @@ export function NoticeDetail({
   pending,
   offline,
   requestFn,
+  readOnly,
 }: NoticeActions & { onClose: () => void; requestFn: RequestFn }) {
   const [versions, setVersions] = useState<{ version: number; createdAt: string }[] | null>(null),
     [error, setError] = useState('');
   useEffect(() => {
+    if (readOnly) return;
     const controller = new AbortController();
     requestFn<{ version: number; createdAt: string }[]>(
       `/api/versions/${encodeURIComponent(n.id)}`,
@@ -935,7 +1002,7 @@ export function NoticeDetail({
           setError('이력을 불러오지 못했습니다.');
       });
     return () => controller.abort();
-  }, [n.id, requestFn]);
+  }, [n.id, requestFn, readOnly]);
   const m = n.match,
     items = [
       ['공급 지역', `${n.region} ${n.city}`],
@@ -956,7 +1023,9 @@ export function NoticeDetail({
               ? 'DEMO NOTICE'
               : n.provenance?.method === 'file-import'
                 ? 'FILE IMPORT · UNVERIFIED'
-                : 'OFFICIAL API · UNREVIEWED'}
+                : n.provenance?.method === 'web'
+                  ? 'OFFICIAL BOARD · UNREVIEWED'
+                  : 'OFFICIAL API · UNREVIEWED'}
           </p>
           <h2>{n.title}</h2>
         </div>
@@ -977,6 +1046,8 @@ export function NoticeDetail({
         ))}
       </div>
       <NoticeDataQuality notice={n} />
+      <SupplyPrices notice={n} />
+      <PreferenceDetails assessment={m.preference} />
       <section className="detail-section">
         <h3>{matchLabels[m.status]}</h3>
         <ul>
@@ -999,15 +1070,17 @@ export function NoticeDetail({
           ))}
         </section>
       )}
-      <section className="detail-section">
-        <h3>원본과 변경 이력</h3>
-        <p>
-          {error ||
-            (versions
-              ? versions.map((v) => `v${v.version} · ${dateTime(v.createdAt)}`).join(' / ')
-              : '변경 이력을 확인하고 있어요…')}
-        </p>
-      </section>
+      {!readOnly && (
+        <section className="detail-section">
+          <h3>원본과 변경 이력</h3>
+          <p>
+            {error ||
+              (versions
+                ? versions.map((v) => `v${v.version} · ${dateTime(v.createdAt)}`).join(' / ')
+                : '변경 이력을 확인하고 있어요…')}
+          </p>
+        </section>
+      )}
       <div className="detail-actions">
         {n.sourceUrl ? (
           <a className="primary" href={n.sourceUrl} target="_blank" rel="noopener noreferrer">

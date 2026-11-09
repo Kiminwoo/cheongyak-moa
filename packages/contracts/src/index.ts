@@ -3,8 +3,8 @@ export type HousingOwned = 'yes' | 'no' | 'unknown';
 export type View = 'matching' | 'all' | 'calendar' | 'favorites' | 'sources';
 export type MatchStatus = 'review' | 'missing' | 'ineligible' | 'demo-match';
 export type NoticeStage = 'open' | 'upcoming' | 'closed' | 'unknown' | 'cancelled';
-export type CollectionMethod = 'api' | 'file-import';
-export type ApiSource = 'applyhome' | 'lh';
+export type CollectionMethod = 'api' | 'web' | 'file-import';
+export type ApiSource = 'applyhome' | 'lh' | 'sh' | 'gh' | 'local';
 export type Environment = Record<string, string | undefined>;
 
 export interface Profile {
@@ -34,6 +34,15 @@ export interface QualityIssue {
   severity: 'warning' | 'error';
 }
 export interface Notice {
+  issuerName?: string;
+  provider?: 'myhome' | 'sh-board' | 'gh-board';
+  publicationDate?: string;
+  withdrawnFromProvider?: boolean;
+  pricing?: {
+    operation: string;
+    basis: 'model-maximum';
+    models: SupplyPrice[];
+  };
   id: string;
   sourceId: string;
   externalId: string;
@@ -68,6 +77,13 @@ export interface Notice {
   quality?: QualityIssue[];
   provenance?: { method: CollectionMethod; reviewStatus: 'unverified' };
 }
+export interface SupplyPrice {
+  model: string;
+  housingType: string;
+  supplyArea: string | null;
+  units: number | null;
+  maximumWon: number | null;
+}
 export interface StoredNotice extends Notice {
   updatedAt: string;
   lastSeenAt: string;
@@ -75,6 +91,7 @@ export interface StoredNotice extends Notice {
   version: number;
 }
 export interface MatchResult {
+  preference: PreferenceAssessment;
   status: MatchStatus;
   score: number;
   reasons: string[];
@@ -82,6 +99,17 @@ export interface MatchResult {
   failed: string[];
   basisDate: string | null;
   stage: NoticeStage;
+}
+export type PreferenceState = 'matched' | 'mismatch' | 'unknown' | 'unset';
+export interface PreferenceCheck {
+  field: 'region' | 'type' | 'price' | 'deposit' | 'monthly';
+  label: string;
+  state: PreferenceState;
+  message: string;
+}
+export interface PreferenceAssessment {
+  state: PreferenceState;
+  checks: PreferenceCheck[];
 }
 export interface MatchedNotice extends StoredNotice {
   match: MatchResult;
@@ -117,7 +145,7 @@ export interface ConnectionInfo extends CollectionConfig {
   maxImportBytes: number;
 }
 export interface SourceInfo {
-  id: string;
+  id: ApiSource;
   name: string;
   scope: string;
   status: 'adapter' | 'planned';
@@ -126,6 +154,7 @@ export interface SourceInfo {
   count: number;
 }
 export interface QualitySummary {
+  webCount: number;
   total: number;
   apiCount: number;
   importedCount: number;
@@ -134,6 +163,9 @@ export interface QualitySummary {
   missingPrice: number;
 }
 export interface BootstrapData {
+  coverage?: CoverageUnit[];
+  readOnly?: boolean;
+  snapshotAt?: string;
   profile: Profile;
   notices: MatchedNotice[];
   regions: string[];
@@ -144,12 +176,30 @@ export interface BootstrapData {
   connection: ConnectionInfo;
   quality: QualitySummary;
 }
+export interface CoverageUnit {
+  sourceId: ApiSource;
+  unit: string;
+  label: string;
+  channel: 'api' | 'web';
+  implemented: boolean;
+  scope: string;
+  status: 'not-run' | 'running' | 'success' | 'failed' | 'planned';
+  fetchedCount: number | null;
+  activeCount: number | null;
+  from: string | null;
+  to: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
+  lastSuccessAt: string | null;
+  errorCode: string | null;
+}
 export interface Filters {
+  openOnly: boolean;
+  excludeMismatch: boolean;
   search: string;
   region: string;
   type: HousingType | '';
   dataMode: 'demo' | 'live' | 'both';
-  includeClosed: boolean;
   status: MatchStatus | '';
   sort: 'recommended' | 'deadline' | 'recent';
 }

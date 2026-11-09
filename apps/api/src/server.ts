@@ -1,6 +1,6 @@
 import { isRecord, errorMessage, errorCode } from '@cheongyak-moa/contracts';
 import type { Environment, FetchJSON, ConnectionInfo } from '@cheongyak-moa/contracts';
-import { projectRoot as findProjectRoot } from './paths.js';
+import { projectRoot as findProjectRoot, dataPaths } from './paths.js';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -8,6 +8,9 @@ import { dirname, join, resolve } from 'node:path';
 import { Store, sources } from './core/store.js';
 import { matchNotice, validateProfile, koreaToday, REGIONS } from '@cheongyak-moa/domain';
 import { collect } from './core/collectors.js';
+import { collectPrices } from './core/prices.js';
+import { collectLocal } from './core/local-collectors.js';
+import { collectBoards } from './core/board-collectors.js';
 import { collectionConfig } from './core/config.js';
 import { summarizeQuality } from './core/data-quality.js';
 import { IMPORT_FORMATS } from './core/normalization.js';
@@ -42,7 +45,7 @@ interface AppOptions {
   projectRoot?: string;
 }
 export function createApp({
-  store = new Store(join(ROOT, 'data', 'cheongyak.sqlite')),
+  store = new Store(dataPaths(ROOT).database),
   env = process.env,
   fetchFn = fetch,
   projectRoot = ROOT,
@@ -126,7 +129,12 @@ export function createApp({
       }
       if (req.method === 'GET' && url.pathname === '/api/bootstrap') {
         const profile = store.profile(),
-          notices = store.all().map((n) => ({ ...n, match: matchNotice(n, profile) }));
+          notices = store
+            .all()
+            .map((n) => ({ ...n, match: matchNotice(n, profile) }))
+            .filter(
+              (n) => !n.withdrawnFromProvider && !['closed', 'cancelled'].includes(n.match.stage),
+            );
         const info = connection();
         return send(200, {
           profile,
@@ -135,9 +143,10 @@ export function createApp({
           today: koreaToday(),
           connection: info,
           quality: summarizeQuality(notices),
+          coverage: store.coverage(),
           sources: sources.map((s) => ({
             ...s,
-            configured: s.id === 'applyhome' || s.id === 'lh' ? info.configured[s.id] : false,
+            configured: info.configured[s.id],
             count: notices.filter((n) => !n.isDemo && n.sourceId === s.id).length,
           })),
           runs: store.runs(),
@@ -146,6 +155,8 @@ export function createApp({
       }
       if (req.method === 'GET' && url.pathname === '/api/connection')
         return send(200, connection());
+      if (req.method === 'GET' && url.pathname === '/api/coverage')
+        return send(200, { units: store.coverage(), nationwideComplete: false });
       if (req.method === 'POST' && url.pathname === '/api/setup-env')
         return send(200, initializeEnv(projectRoot));
       if (req.method === 'POST' && url.pathname === '/api/import') {
@@ -178,17 +189,56 @@ export function createApp({
       }
       if (req.method === 'GET' && url.pathname.startsWith('/api/versions/'))
         return send(200, store.versions(decodeURIComponent(url.pathname.slice(14))));
-      if (req.method === 'POST' && url.pathname === '/api/collect') {
+      if (req.method === 'POST' && url.pathname === '/api/collect-boards') {
+        if (collecting) return send(409, { error: '수집이 이미 실행 중입니다.' });
+        collecting = true;
+        send(202, { ok: true });
+        collectBoards(store, { env, rawDir: join(projectRoot, 'data', 'raw') })
+          .catch(() => console.error('공식 게시판 수집 초기화에 실패했습니다.'))
+          .finally(() => {
+            collecting = false;
+          });
+        return;
+      }
+      if (req.method === 'POST' && ['/api/collect', '/api/collect-retry'].includes(url.pathname)) {
+        const onlyFailed = url.pathname === '/api/collect-retry';
         if (collecting) return send(409, { error: '수집이 이미 실행 중입니다.' });
         const config = collectionConfig(env);
-        if (!config.configured.applyhome && !config.configured.lh)
+        if (!onlyFailed && !Object.values(config.configured).some(Boolean))
           return send(400, {
             error: '.env에 공식 API 인증키를 설정하고 서버를 다시 시작해 주세요.',
           });
         collecting = true;
         // 응답 후 진행. 브라우저에서 상태를 새로 확인할 수 있도록 수집 이력을 기록합니다.
         send(202, { ok: true });
-        collect(store, { env, fetchFn, rawDir: join(projectRoot, 'data', 'raw') })
+        collect(store, { env, fetchFn, rawDir: join(projectRoot, 'data', 'raw'), onlyFailed })
+          .then(async (results) => {
+            await collectLocal(store, {
+              env,
+              fetchFn,
+              rawDir: join(projectRoot, 'data', 'raw'),
+              onlyFailed,
+            });
+            if (onlyFailed)
+              await collectBoards(store, {
+                env,
+                rawDir: join(projectRoot, 'data', 'raw'),
+                onlyFailed,
+              });
+            if (
+              !onlyFailed &&
+              results.some(
+                (result) =>
+                  result.source === 'applyhome' &&
+                  (result.status === 'success' || result.count > 0),
+              )
+            )
+              await collectPrices(store, {
+                env,
+                fetchFn,
+                rawDir: join(projectRoot, 'data', 'raw'),
+              });
+          })
           .catch(() =>
             console.error('수집 작업 초기화에 실패했습니다. 저장소 접근 상태를 확인하세요.'),
           )

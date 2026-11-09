@@ -122,7 +122,7 @@ test('.env 생성은 기존 키를 덮어쓰지 않는다', (t) => {
   assert.equal(initializeEnv(dir).created, false);
   assert.equal(readFileSync(join(dir, '.env'), 'utf8'), 'existing private value');
 });
-test('중간 API 실패 시 출처 전체의 기존 공고를 유지한다', async (t) => {
+test('다른 API 유형 실패가 정상 완료된 유형의 반영을 막지 않는다', async (t) => {
   const { dir, store } = temp(t);
   let calls = 0;
   const result = await collect(store, {
@@ -136,8 +136,18 @@ test('중간 API 실패 시 출처 전체의 기존 공고를 유지한다', asy
     },
   });
   assert.equal(result[0].status, 'failed');
-  assert.equal(store.all().length, 0);
-  assert.equal(result[0].code, 'authentication');
+  assert.equal(store.all().length, 1);
+  assert.equal(result[0].code, 'partial_failure');
+  assert.equal(
+    store.coverage().filter((unit) => unit.sourceId === 'applyhome' && unit.status === 'success')
+      .length,
+    1,
+  );
+  assert.equal(
+    store.coverage().filter((unit) => unit.sourceId === 'applyhome' && unit.status === 'failed')
+      .length,
+    4,
+  );
 });
 test('네트워크 차단과 키 오류를 구분하고 URL을 노출하지 않는다', async (t) => {
   const { dir, store } = temp(t);

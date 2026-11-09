@@ -1,5 +1,8 @@
 import type { Environment, CollectionConfig } from '@cheongyak-moa/contracts';
 import { koreaToday } from '@cheongyak-moa/domain';
+export function myhomeKey(env: Environment): string {
+  return env.MYHOME_SERVICE_KEY?.trim() || env.LH_SERVICE_KEY?.trim() || '';
+}
 export function collectionConfig(
   env: Environment = process.env,
   today = koreaToday(),
@@ -17,6 +20,9 @@ export function collectionConfig(
     configured: {
       applyhome: configured(env.APPLYHOME_SERVICE_KEY),
       lh: configured(env.LH_SERVICE_KEY),
+      sh: !!myhomeKey(env),
+      gh: !!myhomeKey(env),
+      local: !!myhomeKey(env),
     },
   };
 }

@@ -33,11 +33,12 @@ export const stageLabels: Record<NoticeStage, string> = {
   cancelled: '취소',
 };
 export const defaultFilters: Filters = {
+  openOnly: false,
+  excludeMismatch: false,
   search: '',
   region: '',
   type: '',
   dataMode: 'demo',
-  includeClosed: false,
   status: '',
   sort: 'recommended',
 };
@@ -121,13 +122,15 @@ export function selectNotices(
   notices: MatchedNotice[],
   filters: Filters,
   view: View,
-  { status = true }: { status?: boolean } = {},
+  { status = true, stage = true }: { status?: boolean; stage?: boolean } = {},
 ) {
   return notices
     .filter((n) => {
+      if (stage && filters.openOnly && n.match.stage !== 'open') return false;
+      if (filters.excludeMismatch && n.match.preference.state === 'mismatch') return false;
       if (filters.dataMode === 'demo' && !n.isDemo) return false;
       if (filters.dataMode === 'live' && n.isDemo) return false;
-      if (!filters.includeClosed && ['closed', 'cancelled'].includes(n.match.stage)) return false;
+      if (['closed', 'cancelled'].includes(n.match.stage)) return false;
       if (filters.region && n.region !== filters.region && n.region !== '전국') return false;
       if (filters.type && n.type !== filters.type) return false;
       if (view === 'favorites' && !n.favorite) return false;
