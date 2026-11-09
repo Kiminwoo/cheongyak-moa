@@ -16,6 +16,8 @@
     "build:api": "node scripts/build.mjs api",
     "build:vercel": "npm run build && node apps/api/dist/cli/build-vercel.mjs",
     "presnapshot:preview": "npm run build:api",
+    "predata:refresh": "npm run build:api",
+    "data:refresh": "node --experimental-sqlite --env-file-if-exists=.env apps/api/dist/cli/refresh-data.mjs",
     "snapshot:preview": "node --experimental-sqlite --env-file-if-exists=.env apps/api/dist/cli/snapshot-preview.mjs",
     "dev": "node scripts/dev.mjs",
     "prepreview": "npm run build",
