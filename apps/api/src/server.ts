@@ -143,6 +143,7 @@ export function createApp({
           today: koreaToday(),
           connection: info,
           quality: summarizeQuality(notices),
+          coverage: store.coverage(),
           sources: sources.map((s) => ({
             ...s,
             configured: info.configured[s.id],
@@ -154,6 +155,8 @@ export function createApp({
       }
       if (req.method === 'GET' && url.pathname === '/api/connection')
         return send(200, connection());
+      if (req.method === 'GET' && url.pathname === '/api/coverage')
+        return send(200, { units: store.coverage(), nationwideComplete: false });
       if (req.method === 'POST' && url.pathname === '/api/setup-env')
         return send(200, initializeEnv(projectRoot));
       if (req.method === 'POST' && url.pathname === '/api/import') {
@@ -197,21 +200,38 @@ export function createApp({
           });
         return;
       }
-      if (req.method === 'POST' && url.pathname === '/api/collect') {
+      if (req.method === 'POST' && ['/api/collect', '/api/collect-retry'].includes(url.pathname)) {
+        const onlyFailed = url.pathname === '/api/collect-retry';
         if (collecting) return send(409, { error: '수집이 이미 실행 중입니다.' });
         const config = collectionConfig(env);
-        if (!Object.values(config.configured).some(Boolean))
+        if (!onlyFailed && !Object.values(config.configured).some(Boolean))
           return send(400, {
             error: '.env에 공식 API 인증키를 설정하고 서버를 다시 시작해 주세요.',
           });
         collecting = true;
         // 응답 후 진행. 브라우저에서 상태를 새로 확인할 수 있도록 수집 이력을 기록합니다.
         send(202, { ok: true });
-        collect(store, { env, fetchFn, rawDir: join(projectRoot, 'data', 'raw') })
+        collect(store, { env, fetchFn, rawDir: join(projectRoot, 'data', 'raw'), onlyFailed })
           .then(async (results) => {
-            await collectLocal(store, { env, fetchFn, rawDir: join(projectRoot, 'data', 'raw') });
+            await collectLocal(store, {
+              env,
+              fetchFn,
+              rawDir: join(projectRoot, 'data', 'raw'),
+              onlyFailed,
+            });
+            if (onlyFailed)
+              await collectBoards(store, {
+                env,
+                rawDir: join(projectRoot, 'data', 'raw'),
+                onlyFailed,
+              });
             if (
-              results.some((result) => result.source === 'applyhome' && result.status === 'success')
+              !onlyFailed &&
+              results.some(
+                (result) =>
+                  result.source === 'applyhome' &&
+                  (result.status === 'success' || result.count > 0),
+              )
             )
               await collectPrices(store, {
                 env,

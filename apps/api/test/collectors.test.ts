@@ -82,9 +82,9 @@ test('수집·원본 저장·재수집 중복 방지·키 비노출', async () =
     };
     const r = await collect(s, options);
     assert.equal(r[0].status, 'success');
-    assert.equal(calls, 3);
+    assert.equal(calls, 5);
     await collect(s, options);
-    assert.equal(s.all().length, 3);
+    assert.equal(s.all().length, 5);
     assert.ok(s.all().every((n) => s.versions(n.id).length === 1));
     for (const file of readdirSync(join(dir, 'applyhome', '1')))
       assert.ok(!readFileSync(join(dir, 'applyhome', '1', file), 'utf8').includes('test-secret'));

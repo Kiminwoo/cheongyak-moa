@@ -8,6 +8,7 @@ import { MYHOME_URL, LOCAL_SOURCES, myhomePage, normalizeMyhome } from './myhome
 import { inspectNotice } from './data-quality.js';
 import { saveRaw } from './ingestion.js';
 import { boardIdentity } from './board-collectors.js';
+import { COVERAGE_UNITS } from './coverage.js';
 
 export async function collectLocal(
   store: Store,
@@ -16,11 +17,29 @@ export async function collectLocal(
     fetchFn = fetch,
     rawDir = 'data/raw',
     today = koreaToday(),
-  }: { env?: Environment; fetchFn?: FetchJSON; rawDir?: string; today?: string } = {},
+    onlyFailed = false,
+  }: {
+    env?: Environment;
+    fetchFn?: FetchJSON;
+    rawDir?: string;
+    today?: string;
+    onlyFailed?: boolean;
+  } = {},
 ): Promise<CollectionResult[]> {
+  const selected = LOCAL_SOURCES.filter(
+    (source) =>
+      !onlyFailed ||
+      store
+        .coverage()
+        .some(
+          (unit) =>
+            unit.sourceId === source && unit.unit === 'myhome-rental' && unit.status === 'failed',
+        ),
+  );
+  if (!selected.length) return [];
   let key = myhomeKey(env);
   if (!key)
-    return LOCAL_SOURCES.map((source) => ({
+    return selected.map((source) => ({
       source,
       status: 'unconfigured',
       count: 0,
@@ -31,7 +50,13 @@ export async function collectLocal(
   } catch {
     /* 일반 Decoding 키 유지 */
   }
-  const runs = LOCAL_SOURCES.map((source) => ({ source, id: store.beginRun(source) }));
+  const runs = selected.map((source) => {
+    store.beginUnit(
+      COVERAGE_UNITS.find((unit) => unit.sourceId === source && unit.unit === 'myhome-rental')!,
+    );
+    return { source, id: store.beginRun(source) };
+  });
+  let fetched = 0;
   try {
     const rows: Record<string, unknown>[] = [];
     const fingerprints = new Set<string>();
@@ -56,6 +81,7 @@ export async function collectLocal(
         throw new Error('마이홈 페이지 반복');
       fingerprints.add(fingerprint);
       rows.push(...parsed.rows);
+      fetched = rows.length;
       if (rows.length > parsed.total) throw new Error('마이홈 전체 건수 초과');
       saveRaw(rawDir, 'myhome', runs[0].id, `rent-${page}`, payload);
       if (rows.length === parsed.total) {
@@ -66,10 +92,12 @@ export async function collectLocal(
     }
     if (!complete) throw new Error('마이홈 페이지 제한');
     const prepared = normalizeMyhome(rows);
-    const notices = prepared.notices.map((notice) => ({
-      ...notice,
-      quality: inspectNotice(notice),
-    }));
+    const notices = prepared.notices
+      .filter((notice) => selected.some((source) => source === notice.sourceId))
+      .map((notice) => ({
+        ...notice,
+        quality: inspectNotice(notice),
+      }));
     if (notices.some((notice) => notice.quality.some((issue) => issue.severity === 'error')))
       throw new Error('공고 필수 항목·접수 일정 오류');
     const active = notices.filter((notice) => isActiveNotice(notice, today));
@@ -99,12 +127,18 @@ export async function collectLocal(
       const present = new Set(notices.map((notice) => notice.id));
       // 현재 모집 목록 누락은 마감으로 단정하지 않고 서비스 노출만 중단합니다.
       for (const old of store.all())
-        if (old.provider === 'myhome' && !present.has(old.id) && !old.withdrawnFromProvider) {
+        if (
+          old.provider === 'myhome' &&
+          selected.some((source) => source === old.sourceId) &&
+          !present.has(old.id) &&
+          !old.withdrawnFromProvider
+        ) {
           const { updatedAt, lastSeenAt, favorite, version, ...body } = old;
           store.writeNotice({ ...body, withdrawnFromProvider: true });
         }
       for (const run of runs) {
         const subset = active.filter((notice) => notice.sourceId === run.source);
+        store.finishUnit(run.source, 'myhome-rental', 'success', fetched, subset.length);
         const message = `마이홈 공공임대 목록 · ${subset.length}건 · ${changes.get(run.source) ?? 0}건 신규·변경 · LH/기관 미식별 ${prepared.ignored}행 제외. 해당 기관 자체 공고 전체를 뜻하지 않습니다.`;
         store.finishRun(
           run.id,
@@ -134,6 +168,7 @@ export async function collectLocal(
           ? '실행 환경에서 마이홈 API 접속이 차단되었습니다. 기존 자료는 유지됩니다.'
           : '마이홈 응답 형식·페이지·공고 항목 검증에 실패했습니다. 기존 자료는 유지됩니다.';
     return runs.map((run) => {
+      store.finishUnit(run.source, 'myhome-rental', 'failed', fetched, 0, code);
       store.finishRun(run.id, 'failed', 0, message, 0, code);
       return { source: run.source, status: 'failed', count: 0, code, message };
     });

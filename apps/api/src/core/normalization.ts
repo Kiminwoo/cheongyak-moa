@@ -7,6 +7,8 @@ export const HOME_OPERATIONS: [string, HousingType, string][] = [
   ['getAPTLttotPblancDetail', 'sale', 'APT 분양'],
   ['getRemndrLttotPblancDetail', 'sale', '무순위·잔여세대'],
   ['getUrbtyOfctlLttotPblancDetail', 'officetel', '오피스텔·도시형·민간임대'],
+  ['getPblPvtRentLttotPblancDetail', 'rental', '공공지원 민간임대'],
+  ['getOPTLttotPblancDetail', 'sale', '임의공급'],
 ];
 export const IMPORT_FORMATS: ImportFormat[] = [
   {
@@ -28,6 +30,18 @@ export const IMPORT_FORMATS: ImportFormat[] = [
     operation: 'getUrbtyOfctlLttotPblancDetail',
   },
   { id: 'lh-notices', label: 'LH · 분양임대 공고 목록 응답', source: 'lh' },
+  {
+    id: 'applyhome-public-rental',
+    label: '청약홈 · 공공지원 민간임대 목록 응답',
+    source: 'applyhome',
+    operation: 'getPblPvtRentLttotPblancDetail',
+  },
+  {
+    id: 'applyhome-optional',
+    label: '청약홈 · 임의공급 목록 응답',
+    source: 'applyhome',
+    operation: 'getOPTLttotPblancDetail',
+  },
 ];
 const base = {
   isDemo: false,
@@ -124,7 +138,9 @@ export function normalizeHome(
     city: '',
     address: text(row.HSSPLY_ADRES, '주소 미확인'),
     type: rental ? 'rental' : type,
-    subtype: text(row.HOUSE_DTL_SECD_NM || row.HOUSE_SECD_NM || subtype),
+    subtype: text(
+      row.HOUSE_DETAIL_SECD_NM || row.HOUSE_DTL_SECD_NM || row.HOUSE_SECD_NM || subtype,
+    ),
     announced: normalizedDate(row.RCRIT_PBLANC_DE),
     starts: starts[0] || null,
     deadline: ends.at(-1) || null,

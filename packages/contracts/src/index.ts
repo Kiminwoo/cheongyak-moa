@@ -163,6 +163,7 @@ export interface QualitySummary {
   missingPrice: number;
 }
 export interface BootstrapData {
+  coverage?: CoverageUnit[];
   readOnly?: boolean;
   snapshotAt?: string;
   profile: Profile;
@@ -174,6 +175,23 @@ export interface BootstrapData {
   collecting: boolean;
   connection: ConnectionInfo;
   quality: QualitySummary;
+}
+export interface CoverageUnit {
+  sourceId: ApiSource;
+  unit: string;
+  label: string;
+  channel: 'api' | 'web';
+  implemented: boolean;
+  scope: string;
+  status: 'not-run' | 'running' | 'success' | 'failed' | 'planned';
+  fetchedCount: number | null;
+  activeCount: number | null;
+  from: string | null;
+  to: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
+  lastSuccessAt: string | null;
+  errorCode: string | null;
 }
 export interface Filters {
   openOnly: boolean;

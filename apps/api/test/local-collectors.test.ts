@@ -164,3 +164,35 @@ test('동일 응답 재수집은 버전을 늘리지 않고 인증키가 없으�
   await collectLocal(store, options);
   assert.equal(store.versions(store.all()[0].id).length, 1);
 });
+
+test('마이홈 일부 기관만 재시도할 때 다른 기관의 공고·성공 이력을 철회하지 않는다', async (t) => {
+  const { store, rawDir } = setup(t);
+  const gh = {
+    ...row,
+    pblancId: '200',
+    suplyInsttNm: '경기주택도시공사',
+    url: 'https://www.gh.or.kr/test',
+  };
+  const options = { env: { MYHOME_SERVICE_KEY: 'fake-secret' }, rawDir, today: '2026-11-09' };
+  await collectLocal(store, {
+    ...options,
+    fetchFn: async () => ({ ok: true, json: async () => payload([row, gh]) }),
+  });
+  const old = store.all().find((n) => n.sourceId === 'gh');
+  store.finishUnit('sh', 'myhome-rental', 'failed', 0, 0, 'authentication');
+  const results = await collectLocal(store, {
+    ...options,
+    onlyFailed: true,
+    fetchFn: async () => ({ ok: true, json: async () => payload([row]) }),
+  });
+  assert.deepEqual(
+    results.map((result) => result.source),
+    ['sh'],
+  );
+  assert.equal(store.get(old.id).withdrawnFromProvider, undefined);
+  assert.equal(store.get(old.id).version, old.version);
+  assert.equal(
+    store.coverage().find((unit) => unit.sourceId === 'gh' && unit.unit === 'myhome-rental').status,
+    'success',
+  );
+});

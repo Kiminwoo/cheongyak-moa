@@ -244,6 +244,19 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
       setBusy(false);
     }
   }
+  async function retryFailed() {
+    if (readOnly) return;
+    setBusy(true);
+    try {
+      await requestFn('/api/collect-retry', { method: 'POST', body: {} });
+      await refresh();
+      setMessage('실패한 수집 유형의 재시도를 시작했습니다.');
+    } catch (e) {
+      setMessage(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
   async function setupEnv() {
     if (readOnly) return;
     setBusy(true);
@@ -375,6 +388,7 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
                       data={data}
                       onCollect={collect}
                       onBoards={collectBoards}
+                      onRetry={retryFailed}
                       onRefresh={() => refresh().catch((e) => setMessage(errorMessage(e)))}
                       onImport={importData}
                       onSetup={setupEnv}

@@ -87,6 +87,7 @@ export function apiOptions() {
       ...Object.fromEntries(
         [
           'collect',
+          'coverage',
           'local',
           'boards',
           'prices',

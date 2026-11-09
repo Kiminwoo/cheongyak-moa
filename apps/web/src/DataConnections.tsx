@@ -8,6 +8,7 @@ export default function DataConnections({
   data,
   onCollect,
   onBoards,
+  onRetry,
   onRefresh,
   onImport,
   onSetup,
@@ -17,6 +18,7 @@ export default function DataConnections({
   data: BootstrapData;
   onCollect: () => void;
   onBoards?: () => void;
+  onRetry?: () => void;
   onRefresh: () => void;
   onImport: (payload: ImportInput) => Promise<void>;
   onSetup: () => void;
@@ -135,8 +137,65 @@ export default function DataConnections({
           ))}
         </div>
       )}
+      {!!data.coverage?.length && (
+        <section className="detail-section" aria-label="기관·유형별 수집 범위">
+          <h3>기관·유형별 수집 범위</h3>
+          <p>
+            성공은 표시된 조회 범위의 응답 검증을 뜻합니다. 전국 모든 기관·기간의 공고가 수집됐다는
+            뜻은 아닙니다. 미실행·미연동 유형을 함께 확인하세요.
+          </p>
+          <div className="table-scroll">
+            <table className="source-table" aria-label="유형별 수집 현황">
+              <thead>
+                <tr>
+                  <th>기관·유형</th>
+                  <th>최근 시도</th>
+                  <th>조회 범위·건수</th>
+                  <th>최근 성공</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.coverage.map((unit) => (
+                  <tr key={`${unit.sourceId}:${unit.unit}`}>
+                    <td>
+                      {data.sources.find((s) => s.id === unit.sourceId)?.name || unit.sourceId} ·{' '}
+                      {unit.label}
+                      <small>
+                        {unit.channel === 'api' ? 'API' : '공식 웹'} · {unit.scope}
+                      </small>
+                    </td>
+                    <td>
+                      {
+                        {
+                          'not-run': '미실행',
+                          planned: '미연동',
+                          running: '수집 중',
+                          success: '응답 검증 성공',
+                          failed: '실패 · 기존 자료 유지',
+                        }[unit.status]
+                      }
+                      <small>{unit.errorCode || ''}</small>
+                    </td>
+                    <td>
+                      {unit.from && unit.to ? `${unit.from}~${unit.to}` : 'API·게시판 제공 범위'}
+                      <small>
+                        조회 {unit.fetchedCount ?? '-'}행 · 활성 {unit.activeCount ?? '-'}건
+                      </small>
+                    </td>
+                    <td>{unit.lastSuccessAt ? dateTime(unit.lastSuccessAt) : '검증 이력 없음'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="helper">
+            마이홈의 조회 행수는 공통 응답 기준입니다. 기관별 행수를 합산하지 않습니다. 실패한
+            시도의 활성 0건은 기존 저장 공고가 없다는 뜻이 아닙니다.
+          </p>
+        </section>
+      )}
       <div className="table-scroll">
-        <table className="source-table">
+        <table className="source-table" aria-label="기관별 수집 현황">
           <thead>
             <tr>
               <th>출처·활용 신청</th>
@@ -226,6 +285,15 @@ export default function DataConnections({
         {onBoards && (
           <button className="secondary" disabled={disabled} onClick={onBoards}>
             SH·GH 게시판 수집
+          </button>
+        )}
+        {onRetry && (
+          <button
+            className="secondary"
+            disabled={disabled || !data.coverage?.some((unit) => unit.status === 'failed')}
+            onClick={onRetry}
+          >
+            실패 유형 재수집
           </button>
         )}
       </div>

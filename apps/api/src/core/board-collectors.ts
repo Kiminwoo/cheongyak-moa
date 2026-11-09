@@ -9,6 +9,7 @@ import type { BoardSource, BoardFetch } from './board-http.js';
 import { boardListURL, parseBoardList, parseBoardDetail } from './board-parser.js';
 import type { BoardEntry } from './board-parser.js';
 import { inspectNotice } from './data-quality.js';
+import { COVERAGE_UNITS } from './coverage.js';
 
 export function boardIdentity(value: string | null, source: string): string | null {
   if (!value || !['sh', 'gh'].includes(source)) return null;
@@ -30,12 +31,14 @@ export async function collectBoards(
     fetchFn = fetch,
     interval = 1000,
     today = koreaToday(),
+    onlyFailed = false,
   }: {
     env?: Environment;
     rawDir?: string;
     fetchFn?: BoardFetch;
     interval?: number;
     today?: string;
+    onlyFailed?: boolean;
   } = {},
 ): Promise<CollectionResult[]> {
   const maxPages = Number(env.BOARD_MAX_PAGES || 5);
@@ -43,6 +46,19 @@ export async function collectBoards(
     throw new Error('게시판 페이지 수는 1~20 사이의 정수여야 합니다.');
   const results: CollectionResult[] = [];
   for (const source of ['sh', 'gh'] as const) {
+    if (
+      onlyFailed &&
+      !store
+        .coverage()
+        .some(
+          (unit) =>
+            unit.sourceId === source && unit.unit === 'official-board' && unit.status === 'failed',
+        )
+    )
+      continue;
+    store.beginUnit(
+      COVERAGE_UNITS.find((unit) => unit.sourceId === source && unit.unit === 'official-board')!,
+    );
     const run = store.beginRun(source, 'web');
     const client = new BoardClient(source, fetchFn, interval);
     const folder = join(rawDir, 'boards', source, String(run));
@@ -115,6 +131,7 @@ export async function collectBoards(
             }
         }
         const message = `공식 게시판 · ${active.length}건 · ${changes}건 신규·변경 · ${complete ? '현재 조회 목록 확인 완료' : `분류별 최근 ${maxPages}페이지 한정`} · 일정·금액 미확인은 원문 확인 필요`;
+        store.finishUnit(source, 'official-board', 'success', staged.length, active.length);
         store.finishRun(
           run,
           'success',
@@ -143,6 +160,7 @@ export async function collectBoards(
       const message =
         (messages[code] ?? '공식 게시판 수집을 완료하지 못했습니다.') + ' 기존 자료는 유지됩니다.';
       store.finishRun(run, 'failed', 0, message, 0, code);
+      store.finishUnit(source, 'official-board', 'failed', 0, 0, code);
       results.push({ source, status: 'failed', count: 0, message, code });
     } finally {
       for (const [origin, policy] of client.policySnapshot())

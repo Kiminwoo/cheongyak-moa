@@ -8,6 +8,7 @@ import { inspectNotice, assertNoSecrets } from './data-quality.js';
 import { isActiveNotice, koreaToday } from '@cheongyak-moa/domain';
 
 export const PRICE_OPERATIONS: Record<string, { operation: string; amount: string }> = {
+  getOPTLttotPblancDetail: { operation: 'getOPTLttotPblancMdl', amount: 'LTTOT_TOP_AMOUNT' },
   getAPTLttotPblancDetail: { operation: 'getAPTLttotPblancMdl', amount: 'LTTOT_TOP_AMOUNT' },
   getRemndrLttotPblancDetail: { operation: 'getRemndrLttotPblancMdl', amount: 'LTTOT_TOP_AMOUNT' },
   getUrbtyOfctlLttotPblancDetail: {

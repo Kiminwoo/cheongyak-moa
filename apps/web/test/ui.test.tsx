@@ -49,6 +49,51 @@ async function setup(t, { live = false, pricing = false, local = false, readOnly
   };
   const calls = [];
   if (local) {
+    data.coverage = [
+      {
+        sourceId: 'sh',
+        unit: 'myhome-rental',
+        label: '마이홈 목록',
+        channel: 'api',
+        implemented: true,
+        scope: '응답 포함 기관만',
+        status: 'success',
+        fetchedCount: 185,
+        activeCount: 0,
+        from: null,
+        to: null,
+        lastSuccessAt: '2026-11-08T00:00:00Z',
+      },
+      {
+        sourceId: 'gh',
+        unit: 'official-board',
+        label: '공식 게시판',
+        channel: 'web',
+        implemented: true,
+        scope: '정책 허용 범위',
+        status: 'failed',
+        errorCode: 'robots_denied',
+        fetchedCount: 0,
+        activeCount: 0,
+        from: null,
+        to: null,
+        lastSuccessAt: null,
+      },
+      {
+        sourceId: 'local',
+        unit: 'agency-boards',
+        label: '기관별 자체 공고',
+        channel: 'web',
+        implemented: false,
+        scope: '기관별 연동 예정',
+        status: 'planned',
+        fetchedCount: null,
+        activeCount: null,
+        from: null,
+        to: null,
+        lastSuccessAt: null,
+      },
+    ];
     data.sources = ['sh', 'gh', 'local'].map((id) => ({
       id,
       name: id.toUpperCase(),
@@ -155,9 +200,14 @@ test('기관별 마이홈 수집 경로와 정상 응답 0건을 연동 예정�
   const panel = container.querySelector('#sources-panel');
   assert.ok(panel.textContent.includes('마이홈 공공주택 모집공고 API'));
   assert.ok(panel.textContent.includes('기관 홈페이지 자체 공고 전체가 아닙니다'));
-  assert.equal(panel.querySelectorAll('.source-table tbody tr').length, 3);
+  assert.equal(panel.querySelectorAll('table[aria-label="기관별 수집 현황"] tbody tr').length, 3);
   assert.ok(panel.textContent.includes('응답 수신 · 해당 공고 0건'));
-  assert.ok(!panel.textContent.includes('연동 예정'));
+  assert.ok(
+    !panel.querySelector('table[aria-label="기관별 수집 현황"]').textContent.includes('연동 예정'),
+  );
+  assert.ok(panel.textContent.includes('미연동'));
+  assert.ok(panel.textContent.includes('robots_denied'));
+  assert.ok(panel.textContent.includes('검증 이력 없음'));
 });
 
 test('접수 중 통계 카드를 클릭하면 해당 공고만 표시하고 다시 클릭하거나 필터를 해제할 수 있다', async (t) => {

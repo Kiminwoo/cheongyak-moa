@@ -15,6 +15,14 @@ async function fixture(t, store = new Store(':memory:')) {
   return `http://127.0.0.1:${server.address().port}`;
 }
 const headers = { 'Content-Type': 'application/json', 'X-Local-Request': '1' };
+test('수집 범위 API는 미실행·미연동을 완료로 표시하지 않는다', async (t) => {
+  const base = await fixture(t);
+  const data = await (await fetch(base + '/api/coverage')).json();
+  assert.equal(data.nationwideComplete, false);
+  assert.equal(data.units.filter((unit) => unit.sourceId === 'applyhome').length, 5);
+  assert.ok(data.units.some((unit) => unit.status === 'planned'));
+  assert.ok(!data.units.some((unit) => unit.status === 'success'));
+});
 test('화면과 API가 동작하고 비밀정보를 반환하지 않는다', async (t) => {
   const base = await fixture(t);
   const page = await fetch(base);

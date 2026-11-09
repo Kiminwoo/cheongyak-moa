@@ -84,6 +84,11 @@ test('상세 구조 변경 시 기존 공고를 유지하고 GH 제한을 별도
   });
   assert.equal(results[0].code, 'parser_changed');
   assert.equal(results[1].code, 'robots_denied');
+  assert.equal(
+    store.coverage().find((unit) => unit.sourceId === 'gh' && unit.unit === 'official-board')
+      .errorCode,
+    'robots_denied',
+  );
   assert.equal(store.get(old.id).version, 1);
   assert.equal(store.get(old.id).withdrawnFromProvider, undefined);
 });
