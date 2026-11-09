@@ -22,3 +22,7 @@ apps/web/public/app.js.map
 .test-build/
 .env.local
 .vercel/
+
+.vercel
+.env*
+!.env.example
