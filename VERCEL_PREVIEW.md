@@ -6,6 +6,16 @@
 
 ## 준비 및 배포
 
+### Git 자동 배포
+
+`vercel.json`은 `npm run build:vercel`로 보호된 Build Output API 패키지를 생성합니다. 로컬 SQLite 없이 `apps/api/snapshots/public-notices.snapshot.json`의 공개 공고 사본을 사용합니다. 공개 저장소에는 이 사본도 공개되며 개인 조건·관심 목록·인증 정보는 포함하지 않습니다.
+
+Vercel의 Production과 Preview 환경에 `PREVIEW_AUTH_HASH`를 Secret 환경변수로 등록해야 합니다. 값은 기존 인증 파일의 SHA-256 검증값이며 비밀번호 원문이 아닙니다. 값이 없으면 빌드가 실패합니다. Git 배포는 기존 비밀번호를 유지하고 빌드 시점부터 기본 8시간 동안 유효합니다. CI는 배포 인증과 관계없는 테스트 검증값으로 패키지 생성을 검사합니다.
+
+공고를 갱신하려면 로컬 수집 후 `npm.cmd run snapshot:preview`를 실행하고 생성된 공개 사본을 검토·커밋·푸시하세요. 아래 수동 배포 명령은 별도로 새 비밀번호를 만들기 때문에 Git 배포의 환경변수와 혼용하지 마세요.
+
+### PC에서 수동 배포
+
 프로젝트 루트의 PowerShell에서 실행합니다.
 
 ```powershell
@@ -36,7 +46,7 @@ npx.cmd vercel deploy --prebuilt
 
 ## 현재 지원 범위
 
-이 구성은 공고 조회를 위한 임시 미리보기입니다. GitHub 저장소만 Vercel에 Import해서 현재 로컬 서버를 그대로 운영하는 구성은 아닙니다. 로그인·사용자별 추천·관심 저장·자동 수집을 운영하려면 외부 영구 DB, 사용자 인증과 권한 분리, 별도 수집 작업 실행 환경이 필요합니다. Vercel 함수의 로컬 SQLite 파일은 운영용 영구 저장소로 사용할 수 없습니다.
+이 구성은 공개 공고 사본을 사용하는 임시 조회 화면이며 Git 자동 배포를 지원합니다. 로그인·사용자별 추천·관심 저장·자동 수집을 운영하려면 외부 영구 DB, 사용자 인증과 권한 분리, 별도 수집 작업 실행 환경이 필요합니다. Vercel 함수의 로컬 SQLite 파일은 운영용 영구 저장소로 사용할 수 없습니다.
 
 로컬에서 같은 보호 화면을 점검하려면 `npm.cmd run preview`를 실행하고 `http://127.0.0.1:4311`로 접속하세요. 로컬 인증 파일은 `data/preview-access.txt`입니다. 개발 서버는 기존대로 `npm.cmd run dev`와 `http://127.0.0.1:4310`을 사용합니다.
 
