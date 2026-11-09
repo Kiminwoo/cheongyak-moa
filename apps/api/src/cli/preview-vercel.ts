@@ -1,18 +1,11 @@
 import { randomBytes } from 'node:crypto';
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-  lstatSync,
-  rmSync,
-} from 'node:fs';
-import { join, resolve, relative } from 'node:path';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { previewData } from '../preview.js';
 import { previewHash } from '../preview-http.js';
 import { projectRoot, dataPaths } from '../paths.js';
+import { writePreviewPackage } from '../core/preview-package.js';
 
 const root = projectRoot(import.meta.url);
 const hours = Number(process.env.PREVIEW_HOURS || 8);
@@ -27,47 +20,14 @@ try {
 }
 if (!snapshot.notices.length)
   throw new Error('공유할 실제 공고가 없습니다. 로컬에서 공고 수집을 먼저 실행해 주세요.');
-const output = resolve(root, '.vercel', 'output');
-// Only replace an output created by this command; retain Vercel account/project links.
-if (relative(resolve(root, '.vercel'), output) !== 'output')
-  throw new Error('잘못된 출력 경로입니다.');
-if (existsSync(output)) {
-  if (lstatSync(output).isSymbolicLink() || !existsSync(join(output, '.cheongyak-preview')))
-    throw new Error('다른 Vercel 빌드 결과가 있습니다. 별도 폴더에서 준비해 주세요.');
-  rmSync(output, { recursive: true });
-}
-const fn = join(output, 'functions', 'index.func');
-mkdirSync(join(fn, 'web', 'icons'), { recursive: true });
-mkdirSync(join(output, 'static'), { recursive: true });
-const json = (path: string, value: unknown) => writeFileSync(path, JSON.stringify(value));
-writeFileSync(join(output, '.cheongyak-preview'), 'read-only-public-notices');
-json(join(output, 'config.json'), {
-  version: 3,
-  routes: [{ src: '/(.*)', dest: '/index?__preview_path=$1' }],
-});
-json(join(fn, '.vc-config.json'), {
-  runtime: 'nodejs22.x',
-  handler: 'index.mjs',
-  launcherType: 'Nodejs',
-  maxDuration: 10,
-});
 const password = randomBytes(24).toString('base64url');
 const expiresAt = Date.now() + hours * 3600000;
-json(join(fn, 'access.json'), {
+const fn = writePreviewPackage(
+  root,
+  snapshot,
+  previewHash('Basic ' + Buffer.from('preview:' + password).toString('base64')),
   expiresAt,
-  authorizationHash: previewHash('Basic ' + Buffer.from('preview:' + password).toString('base64')),
-});
-json(join(fn, 'notices.json'), snapshot);
-for (const file of [
-  'index.html',
-  'app.js',
-  'style.css',
-  'responsive.css',
-  'favicon.svg',
-  'icons/apple-touch-icon.png',
-])
-  cpSync(join(root, 'apps', 'web', 'dist', file), join(fn, 'web', file));
-cpSync(join(root, 'apps', 'api', 'dist', 'preview-handler.mjs'), join(fn, 'index.mjs'));
+);
 // The deployable directory contains a verifier hash, never the plaintext password.
 const accessFile = join(root, 'data', 'vercel-preview-access.txt');
 writeFileSync(

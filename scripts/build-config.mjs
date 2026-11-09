@@ -96,6 +96,8 @@ export function apiOptions() {
           'setup-env',
           'preview',
           'preview-vercel',
+          'build-vercel',
+          'snapshot-preview',
         ].map((name) => ['cli/' + name, join(root, `apps/api/src/cli/${name}.ts`)]),
       ),
     },
