@@ -2,18 +2,15 @@ import { cpSync, existsSync, lstatSync, mkdirSync, rmSync, writeFileSync } from 
 import { join, relative, resolve } from 'node:path';
 import type { BootstrapData } from '@cheongyak-moa/contracts';
 import { assertPublicSnapshot } from './public-snapshot.js';
+import type { PreviewAccess } from '../preview-http.js';
 
-export function writePreviewPackage(
-  root: string,
-  snapshot: BootstrapData,
-  authorizationHash: string,
-  expiresAt: number,
-) {
+export function writePreviewPackage(root: string, snapshot: BootstrapData, access: PreviewAccess) {
   assertPublicSnapshot(snapshot);
   if (
-    !/^[a-f0-9]{64}$/.test(authorizationHash) ||
-    !Number.isFinite(expiresAt) ||
-    expiresAt <= Date.now()
+    !access.publicReadOnly &&
+    (!/^[a-f0-9]{64}$/.test(access.authorizationHash) ||
+      !Number.isFinite(access.expiresAt) ||
+      access.expiresAt <= Date.now())
   )
     throw new Error('유효한 미리보기 인증 설정이 필요합니다.');
   const output = resolve(root, '.vercel', 'output');
@@ -38,7 +35,7 @@ export function writePreviewPackage(
     launcherType: 'Nodejs',
     maxDuration: 10,
   });
-  json(join(fn, 'access.json'), { authorizationHash, expiresAt });
+  json(join(fn, 'access.json'), access.publicReadOnly ? { publicReadOnly: true } : access);
   json(join(fn, 'notices.json'), snapshot);
   for (const file of [
     'index.html',

@@ -4,14 +4,11 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { BootstrapData } from '@cheongyak-moa/contracts';
 import { matchNotice, koreaToday } from '@cheongyak-moa/domain';
-import { createPreviewHandler } from './preview-http.js';
+import { createPreviewHandler, type PreviewAccess } from './preview-http.js';
 import { summarizeQuality } from './core/data-quality.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
-const config = JSON.parse(readFileSync(join(root, 'access.json'), 'utf8')) as {
-  authorizationHash: string;
-  expiresAt: number;
-};
+const config = JSON.parse(readFileSync(join(root, 'access.json'), 'utf8')) as PreviewAccess;
 const snapshot = JSON.parse(readFileSync(join(root, 'notices.json'), 'utf8')) as BootstrapData;
 const handler = createPreviewHandler({
   ...config,
