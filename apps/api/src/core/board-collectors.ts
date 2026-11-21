@@ -69,25 +69,31 @@ export async function collectBoards(
       writeFileSync(join(folder, name), html);
     };
     try {
-      const entries = new Map<string, BoardEntry>();
+      const entries = new Map<string, { entry: BoardEntry; closed: boolean }>();
       let complete = true;
       const types = source === 'sh' ? (['rental', 'sale'] as const) : (['rental'] as const);
-      for (const type of types) {
+      const scopes = types.map((type) => ({ type, state: 'now' as const, closed: false }));
+      const completed =
+        includeClosed && source === 'sh'
+          ? types.map((type) => ({ type, state: 'suc' as const, closed: true }))
+          : [];
+      for (const { type, state, closed } of [...completed, ...scopes]) {
         let ended = false;
         const pages = new Set<string>();
         for (let page = 1; page <= maxPages; page++) {
-          const html = await client.html(boardListURL(source, page, type));
-          save(`list-${type}-${page}.html`, html);
-          const parsed = parseBoardList(html, source, type);
+          const html = await client.html(boardListURL(source, page, type, state));
+          save(`list-${type}-${state}-${page}.html`, html);
+          const parsed = parseBoardList(html, source, type, state);
           const fingerprint = JSON.stringify(parsed.entries);
           if (parsed.entries.length && pages.has(fingerprint))
             throw boardError('parser_changed', '같은 모집 목록 페이지가 반복됐습니다.');
           pages.add(fingerprint);
           for (const entry of parsed.entries) {
             const old = entries.get(entry.id);
-            if (old && JSON.stringify(old) !== JSON.stringify(entry))
+            if (old && JSON.stringify(old.entry) !== JSON.stringify(entry))
               throw boardError('parser_changed', '게시판 분류 사이 공고 식별자가 충돌합니다.');
-            entries.set(entry.id, entry);
+            // 진행 중 목록은 완료 목록과 중복될 때 현재 상태를 우선합니다.
+            entries.set(entry.id, { entry, closed });
           }
           if (parsed.rowCount < 10) {
             ended = true;
@@ -98,7 +104,7 @@ export async function collectBoards(
       }
       const staged: Notice[] = [];
       const existing = store.all();
-      for (const entry of entries.values()) {
+      for (const { entry, closed } of entries.values()) {
         const html = await client.html(entry.url);
         save(`detail-${entry.id}.html`, html);
         const notice = parseBoardDetail(html, source, entry);
@@ -109,6 +115,7 @@ export async function collectBoards(
             boardIdentity(item.sourceUrl, source) === boardIdentity(notice.sourceUrl, source),
         );
         if (duplicate) notice.id = duplicate.id;
+        if (closed) notice.sourceStatus = '접수마감';
         notice.quality = inspectNotice(notice);
         if (notice.quality.some((issue) => issue.severity === 'error'))
           throw boardError('parser_changed', '게시판 공고 일정 검증에 실패했습니다.');

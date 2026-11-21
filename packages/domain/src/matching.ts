@@ -121,7 +121,7 @@ export function validateProfile(input: unknown, today = koreaToday()): Profile {
 export function stage(notice: Notice, today = koreaToday()): NoticeStage {
   if (notice.cancelled) return 'cancelled';
   if (
-    (notice.provider === 'myhome' || notice.sourceId === 'lh') &&
+    (notice.provider === 'myhome' || notice.provider === 'sh-board' || notice.sourceId === 'lh') &&
     /^(접수|신청|모집)\s*(마감|종료)$/.test(notice.sourceStatus ?? '')
   )
     return 'closed';

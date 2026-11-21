@@ -34,17 +34,20 @@ export interface BoardEntry {
   url: string;
   posted: string;
 }
+type SHRecruitmentState = 'now' | 'suc';
+
 export function boardListURL(
   source: BoardSource,
   page = 1,
   type: 'rental' | 'sale' = 'rental',
+  state: SHRecruitmentState = 'now',
 ): string {
   const url = new URL(BOARD_SITES[source]);
   if (source === 'sh') {
     url.searchParams.set('multi_itm_seq', type === 'rental' ? '2' : '1');
-    url.searchParams.set('recrnotiState', 'now');
+    url.searchParams.set('recrnotiState', state);
+    url.searchParams.set('isRecrnoti', 'Y');
     url.searchParams.set('srchTp', '0');
-    url.searchParams.set('srchWord', '모집');
     url.searchParams.set('page', String(page));
   } else {
     url.searchParams.set('article.offset', String((page - 1) * 10));
@@ -56,6 +59,7 @@ export function parseBoardList(
   html: string,
   source: BoardSource,
   type: 'rental' | 'sale' = 'rental',
+  state?: SHRecruitmentState,
 ): { entries: BoardEntry[]; rowCount: number } {
   const window = documentFrom(html);
   try {
@@ -64,6 +68,16 @@ export function parseBoardList(
       ?.getAttribute('value');
     if (source === 'sh' && category && category !== (type === 'rental' ? '2' : '1'))
       throw boardError('parser_changed', '요청한 주택 분류와 게시판 응답이 다릅니다.');
+    if (source === 'sh' && state) {
+      const filter = window.document.querySelector('input[name="isRecrnoti"]');
+      const selected = window.document.querySelector('input[name="recrnotiState"][checked]');
+      if (
+        (state === 'suc' || filter || selected) &&
+        (filter?.getAttribute('value') !== 'Y' ||
+          ((type === 'rental' || selected) && selected?.getAttribute('value') !== state))
+      )
+        throw boardError('parser_changed', '요청한 모집 상태와 게시판 응답이 다릅니다.');
+    }
     const tables = [...window.document.querySelectorAll('table')];
     const table = tables.find((item) => {
       const headers = [...item.querySelectorAll('th')].map((node) => clean(node.textContent));
