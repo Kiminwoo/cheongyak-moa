@@ -2,6 +2,7 @@ import { cpSync, existsSync, lstatSync, mkdirSync, rmSync, writeFileSync } from 
 import { join, relative, resolve } from 'node:path';
 import type { BootstrapData } from '@cheongyak-moa/contracts';
 import { assertPublicSnapshot } from './public-snapshot.js';
+import { previewAssets, publicPreviewAssets } from '../preview-http.js';
 import type { PreviewAccess } from '../preview-http.js';
 
 export function writePreviewPackage(root: string, snapshot: BootstrapData, access: PreviewAccess) {
@@ -37,14 +38,8 @@ export function writePreviewPackage(root: string, snapshot: BootstrapData, acces
   });
   json(join(fn, 'access.json'), access.publicReadOnly ? { publicReadOnly: true } : access);
   json(join(fn, 'notices.json'), snapshot);
-  for (const file of [
-    'index.html',
-    'app.js',
-    'style.css',
-    'responsive.css',
-    'favicon.svg',
-    'icons/apple-touch-icon.png',
-  ])
+  const assets = access.publicReadOnly ? publicPreviewAssets : previewAssets;
+  for (const [file] of Object.values(assets))
     cpSync(join(root, 'apps', 'web', 'dist', file), join(fn, 'web', file));
   cpSync(join(root, 'apps', 'api', 'dist', 'preview-handler.mjs'), join(fn, 'index.mjs'));
   return fn;
