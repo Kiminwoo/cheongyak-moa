@@ -1,6 +1,8 @@
 import { createApp } from './server.js';
 import { errorCode } from '@cheongyak-moa/contracts';
-const { server, store } = createApp();
+import accounts from './core/temporary-accounts.json' with { type: 'json' };
+import type { TemporaryAccount } from './core/accounts.js';
+const { server, store } = createApp({ accounts: accounts as TemporaryAccount[] });
 const port = Number(process.env.PORT) || 4310;
 server.listen(port, '127.0.0.1', () =>
   console.log(`청약모아 · 로컬 개발 버전 http://127.0.0.1:${port}`),

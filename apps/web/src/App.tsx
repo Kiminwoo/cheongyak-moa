@@ -1,6 +1,7 @@
 import { errorMessage } from '@cheongyak-moa/contracts';
 import type {
   BootstrapData,
+  AccountRole,
   View,
   FilterChange,
   RequestFn,
@@ -64,7 +65,45 @@ function useInstallation() {
   return { installed, install };
 }
 
-export default function App({ requestFn = request }: { requestFn?: RequestFn }) {
+function ProductionAdminSummary({ requestFn }: { requestFn: RequestFn }) {
+  const [summary, setSummary] = useState<{ snapshotAt?: string; accountsExpireAt: number }>();
+  const [error, setError] = useState('');
+  useEffect(() => {
+    const controller = new AbortController();
+    requestFn<{ snapshotAt?: string; accountsExpireAt: number }>('/api/admin/summary', {
+      signal: controller.signal,
+    })
+      .then(setSummary)
+      .catch(() => {
+        if (!controller.signal.aborted) setError('운영 데이터 현황을 불러오지 못했습니다.');
+      });
+    return () => controller.abort();
+  }, [requestFn]);
+  return (
+    <div className="detail-alert">
+      <h3>운영 데이터 현황</h3>
+      {summary && (
+        <p>
+          공고 사본{' '}
+          {summary.snapshotAt ? new Date(summary.snapshotAt).toLocaleString('ko-KR') : '확인 필요'}
+          {' · '}임시 계정 만료 {new Date(summary.accountsExpireAt).toLocaleDateString('ko-KR')}
+        </p>
+      )}
+      {error && <p role="alert">{error}</p>}
+      <a href="https://github.com/Kiminwoo/cheongyak-moa/blob/main/VERCEL_PREVIEW.md#공고-갱신">
+        운영 데이터 갱신 안내
+      </a>
+    </div>
+  );
+}
+
+export default function App({
+  requestFn = request,
+  account,
+}: {
+  requestFn?: RequestFn;
+  account?: { role: AccountRole; logout: () => Promise<void> };
+}) {
   const [data, setData] = useState<BootstrapData | null>(null),
     [error, setError] = useState(''),
     [loading, setLoading] = useState(true);
@@ -312,6 +351,12 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
         view={view}
         onNavigate={navigate}
         favoriteCount={favoriteCount}
+        account={
+          account && {
+            role: account.role,
+            logout: () => account.logout().catch((error) => setMessage(errorMessage(error))),
+          }
+        }
         onInstall={previewMode === 'protected' ? undefined : installApp}
         installed={installed}
       />
@@ -401,6 +446,9 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
                 {view === 'sources' ? (
                   readOnly ? (
                     <section id="sources-panel">
+                      {account?.role === 'admin' && (
+                        <ProductionAdminSummary requestFn={requestFn} />
+                      )}
                       <h3>공고 출처</h3>
                       <p>
                         공개 모집공고를 조회하는 화면입니다. 수집·설정 기능과 개인 정보는 제공하지

@@ -1664,3 +1664,35 @@ dialog::backdrop {
   text-decoration: underline;
   cursor: pointer;
 }
+
+.account-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+}
+.account-card {
+  width: min(100%, 25rem);
+  border: 1px solid #dce2eb;
+  border-radius: 1.25rem;
+  background: #fff;
+  padding: clamp(1.25rem, 5vw, 2rem);
+}
+.account-card h1 {
+  margin: 0.5rem 0 1.5rem;
+  font-size: 1.6rem;
+}
+.account-card form {
+  display: grid;
+  gap: 0.6rem;
+}
+.account-card input {
+  width: 100%;
+  min-height: 2.75rem;
+}
+.account-card .primary {
+  margin-top: 0.6rem;
+}
+.account-card [role='alert'] {
+  color: #9b2437;
+}

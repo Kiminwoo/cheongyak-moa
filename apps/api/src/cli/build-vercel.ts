@@ -9,5 +9,5 @@ const snapshot = decodeSnapshot(
 );
 writePreviewPackage(root, snapshot, { publicReadOnly: true });
 console.log(
-  `Vercel Git 빌드 완료 · 공개 공고 ${snapshot.notices.length}건 · 사본 ${snapshot.snapshotAt} · 비밀번호 없는 조회 전용`,
+  `Vercel Git 빌드 완료 · 공개 공고 ${snapshot.notices.length}건 · 사본 ${snapshot.snapshotAt} · 임시 계정 로그인 적용`,
 );

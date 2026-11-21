@@ -82,10 +82,13 @@ export async function request<T = unknown>(
   });
   const payload: unknown = await response.json();
   if (!response.ok)
-    throw new Error(
-      isRecord(payload) && typeof payload.error === 'string'
-        ? payload.error
-        : '요청에 실패했습니다.',
+    throw Object.assign(
+      new Error(
+        isRecord(payload) && typeof payload.error === 'string'
+          ? payload.error
+          : '요청에 실패했습니다.',
+      ),
+      { status: response.status },
     );
   return payload as T;
 }

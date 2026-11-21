@@ -31,6 +31,7 @@ export function createPreviewHandler(
     data: () => BootstrapData;
     webDirectory: string;
     now?: () => number;
+    accountLogin?: boolean;
   } & PreviewAccess,
 ): RequestListener {
   const { data, webDirectory, now = Date.now } = options;
@@ -103,7 +104,7 @@ export function createPreviewHandler(
         const [file, type] = assets[path];
         let bytes = readFileSync(join(webDirectory, file));
         if (path === '/') {
-          const mode = publicReadOnly ? 'public' : 'protected';
+          const mode = options.accountLogin ? 'accounts' : publicReadOnly ? 'public' : 'protected';
           const html = bytes
             .toString('utf8')
             .replace('<head>', `<head><meta name="cheongyak-preview" content="${mode}">`);

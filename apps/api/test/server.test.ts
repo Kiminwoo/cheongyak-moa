@@ -6,6 +6,7 @@ import { request } from 'node:http';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { generateTemporaryAccount } from '../src/core/accounts.js';
 import { demoNotices } from '../src/core/demo.js';
 async function fixture(t, store = new Store(':memory:'), options = {}) {
   const { server } = createApp({ store, env: {}, ...options });
@@ -208,6 +209,51 @@ test('운영 발행 설정 시 전체 갱신 버튼은 검증된 배포 작업�
   const failed = await waitForRefresh(base);
   assert.equal(failed.dataRefresh.state, 'failed');
   assert.match(failed.dataRefresh.message, /daily-refresh.log/);
+});
+test('임시 계정은 고객·관리자 권한을 분리하고 서명 변경을 거부한다', async (t) => {
+  const expiry = Date.now() + 60_000;
+  const customer = generateTemporaryAccount('client', 'client', expiry);
+  const admin = generateTemporaryAccount('admin', 'admin', expiry);
+  const store = new Store(':memory:');
+  store.saveProfile({ birthDate: '1991-02-03' });
+  const base = await fixture(t, store, { accounts: [customer.account, admin.account] });
+  const get = (path: string, cookie = '') => fetch(base + path, { headers: { Cookie: cookie } });
+  function post(path: string, body: unknown, cookie = '') {
+    return fetch(base + path, {
+      method: 'POST',
+      headers: { ...headers, Cookie: cookie },
+      body: JSON.stringify(body),
+    });
+  }
+  assert.match(await (await get('/')).text(), /cheongyak-preview" content="accounts"/);
+  assert.equal((await get('/api/bootstrap')).status, 401);
+  assert.equal(
+    (await post('/api/login', { username: 'admin', password: customer.password })).status,
+    401,
+  );
+  for (const { account, password } of [customer, admin]) {
+    const response = await post('/api/login', { username: account.username, password });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { role: account.role });
+    const cookie = response.headers.get('set-cookie')!;
+    assert.match(cookie, /HttpOnly; SameSite=Strict/);
+    const token = cookie.split(';')[0];
+    const data = await (await get('/api/bootstrap', token)).json();
+    if (account.role === 'client') {
+      assert.equal(data.readOnly, true);
+      assert.deepEqual(data.profile, {});
+      for (const path of ['/api/connection', '/api/versions/demo-01'])
+        assert.equal((await get(path, token)).status, 403);
+      assert.equal((await post('/api/refresh-data', {}, token)).status, 403);
+      assert.equal((await get('/api/bootstrap', token.replace('client.', 'admin.'))).status, 401);
+    } else {
+      assert.equal(data.profile.birthDate, '1991-02-03');
+      assert.equal((await get('/api/connection', token)).status, 200);
+      assert.equal((await post('/api/refresh-data', {}, token)).status, 400);
+    }
+    const logout = await post('/api/logout', {}, token);
+    assert.match(logout.headers.get('set-cookie')!, /Max-Age=0/);
+  }
 });
 test('변경 이력 조회・없는 경로・과대 입력 처리', async (t) => {
   const base = await fixture(t);

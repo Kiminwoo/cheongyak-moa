@@ -37,6 +37,8 @@
     "collect:archive": "npm run collect:all -- --include-closed",
     "precollect:retry": "npm run build:api",
     "collect:retry": "node --experimental-sqlite --env-file-if-exists=.env apps/api/dist/cli/collect.mjs --boards --retry-failed",
+    "preaccounts:create": "npm run build:api",
+    "accounts:create": "node apps/api/dist/cli/create-accounts.mjs",
     "precoverage": "npm run build:api",
     "coverage": "node --experimental-sqlite apps/api/dist/cli/coverage.mjs",
     "collect:ih": "npm run collect:local -- --ih",
