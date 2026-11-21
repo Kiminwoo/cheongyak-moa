@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import type { BootstrapData, Notice, MatchedNotice } from '@cheongyak-moa/contracts';
 import { matchNotice, koreaToday, REGIONS } from '@cheongyak-moa/domain';
 import { summarizeQuality } from './core/data-quality.js';
+import { pastAptResults } from './core/applyhome-results.js';
 import { sources } from './core/store.js';
 
 // Deliberately never selects profile, favorites, run messages, or stored matching results.
@@ -46,6 +47,7 @@ function publicNotice(n: Notice): Notice {
     publicationEnd,
     sourceStatus,
     withdrawnFromProvider,
+    aptResults,
   } = n;
   let sourceUrl: string | null = null;
   try {
@@ -98,18 +100,19 @@ function publicNotice(n: Notice): Notice {
     publicationEnd,
     sourceStatus,
     withdrawnFromProvider,
+    aptResults,
     sourceUrl,
   };
 }
 
 export function previewData(db: DatabaseSync, today = koreaToday()): BootstrapData {
-  const notices: MatchedNotice[] = [];
+  const matched: MatchedNotice[] = [];
   for (const row of db.prepare('SELECT body, updated_at, last_seen_at FROM notices').all()) {
     const n = publicNotice(JSON.parse(String(row.body)) as Notice);
     if (n.isDemo || n.withdrawnFromProvider) continue;
     const match = matchNotice(n, {}, today);
-    if (['closed', 'cancelled'].includes(match.stage)) continue;
-    notices.push({
+    if (['closed', 'cancelled'].includes(match.stage) && !n.aptResults) continue;
+    matched.push({
       ...n,
       favorite: false,
       version: 1,
@@ -118,10 +121,13 @@ export function previewData(db: DatabaseSync, today = koreaToday()): BootstrapDa
       match,
     });
   }
+  const notices = matched.filter((n) => !['closed', 'cancelled'].includes(n.match.stage));
+  const pastResults = pastAptResults(matched, today);
   return {
     readOnly: true,
     profile: {},
     notices,
+    ...(pastResults.length ? { pastResults } : {}),
     regions: REGIONS,
     today,
     collecting: false,

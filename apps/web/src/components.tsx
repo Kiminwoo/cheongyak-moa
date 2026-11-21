@@ -35,6 +35,7 @@ interface NoticeActions {
 import React, { useEffect, useRef, useState } from 'react';
 import NoticeDataQuality from './NoticeDataQuality.js';
 import PreferenceDetails, { preferenceLabels } from './PreferenceDetails.js';
+import NoticeResults from './NoticeResults.js';
 import SupplyPrices, { supplyPriceText } from './SupplyPrices.js';
 import {
   matchLabels,
@@ -1047,6 +1048,7 @@ export function NoticeDetail({
       </div>
       <NoticeDataQuality notice={n} />
       <SupplyPrices notice={n} />
+      {n.aptResults && <NoticeResults results={n.aptResults} />}
       <PreferenceDetails assessment={m.preference} />
       <section className="detail-section">
         <h3>{matchLabels[m.status]}</h3>

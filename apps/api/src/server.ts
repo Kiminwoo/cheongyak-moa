@@ -12,6 +12,7 @@ import { collectPrices } from './core/prices.js';
 import { collectLocal } from './core/local-collectors.js';
 import { collectBoards } from './core/board-collectors.js';
 import { collectionConfig } from './core/config.js';
+import { pastAptResults } from './core/applyhome-results.js';
 import { summarizeQuality } from './core/data-quality.js';
 import { IMPORT_FORMATS } from './core/normalization.js';
 import { importResponse, MAX_IMPORT_BYTES } from './core/ingestion.js';
@@ -128,19 +129,21 @@ export function createApp({
         }
       }
       if (req.method === 'GET' && url.pathname === '/api/bootstrap') {
-        const profile = store.profile(),
-          notices = store
-            .all()
-            .map((n) => ({ ...n, match: matchNotice(n, profile) }))
-            .filter(
-              (n) => !n.withdrawnFromProvider && !['closed', 'cancelled'].includes(n.match.stage),
-            );
+        const profile = store.profile();
+        const today = koreaToday();
+        const matched = store
+          .all()
+          .filter((n) => !n.withdrawnFromProvider)
+          .map((n) => ({ ...n, match: matchNotice(n, profile, today) }));
+        const notices = matched.filter((n) => !['closed', 'cancelled'].includes(n.match.stage));
+        const pastResults = pastAptResults(matched, today);
         const info = connection();
         return send(200, {
           profile,
           notices,
+          ...(pastResults.length ? { pastResults } : {}),
           regions: REGIONS,
-          today: koreaToday(),
+          today,
           connection: info,
           quality: summarizeQuality(notices),
           coverage: store.coverage(),

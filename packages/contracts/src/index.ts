@@ -33,7 +33,39 @@ export interface QualityIssue {
   message: string;
   severity: 'warning' | 'error';
 }
+export const PAST_RESULTS_LIMIT = 20;
+export interface AptResults {
+  checkedAt: string;
+  competition: {
+    model: string;
+    housingType: string;
+    rank: string | null;
+    region: string;
+    units: string | null;
+    applications: string | null;
+    rate: string | null;
+  }[];
+  scores: {
+    model: string;
+    housingType: string;
+    region: string;
+    low: string | null;
+    high: string | null;
+    average: string | null;
+  }[];
+  special: {
+    housingType: string;
+    category: string;
+    units: string | null;
+    local: string | null;
+    otherGyeonggi: string | null;
+    other: string | null;
+    applications: string | null;
+    reserveApplications: string | null;
+  }[];
+}
 export interface Notice {
+  aptResults?: AptResults;
   issuerName?: string;
   provider?: 'myhome' | 'sh-board' | 'gh-board' | 'ih-api';
   publicationDate?: string;
@@ -177,6 +209,7 @@ export interface BootstrapData {
   snapshotAt?: string;
   profile: Profile;
   notices: MatchedNotice[];
+  pastResults?: MatchedNotice[];
   regions: string[];
   today: string;
   sources: SourceInfo[];

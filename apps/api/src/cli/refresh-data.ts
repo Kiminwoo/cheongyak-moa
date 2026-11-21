@@ -5,6 +5,7 @@ import { Store } from '../core/store.js';
 import { collect } from '../core/collectors.js';
 import { collectLocal } from '../core/local-collectors.js';
 import { collectBoards } from '../core/board-collectors.js';
+import { collectAptResults } from '../core/applyhome-results.js';
 import { collectPrices } from '../core/prices.js';
 import { refreshPolicy } from '../core/refresh-policy.js';
 import { exportPublicSnapshot } from '../core/snapshot-export.js';
@@ -12,9 +13,14 @@ const root = projectRoot(import.meta.url);
 const paths = dataPaths(root);
 const store = new Store(paths.database, { seed: false });
 const startedAt = new Date().toISOString();
+const resultsConfigured = Boolean(process.env.APPLYHOME_RESULTS_SERVICE_KEY?.trim());
 try {
   console.log('전체 API 수집 → 게시판 점검 → 가격 보강 → 검증 → 공개 사본 갱신을 시작합니다.');
-  for (const result of await collect(store, { rawDir: paths.raw, allDates: true }))
+  for (const result of await collect(store, {
+    rawDir: paths.raw,
+    allDates: true,
+    includeClosed: resultsConfigured,
+  }))
     console.log(`${result.source}: ${result.status} · ${result.count}건 · ${result.message}`);
   for (const result of await collectLocal(store, { rawDir: paths.raw }))
     console.log(`${result.source}: ${result.status} · ${result.count}건 · ${result.message}`);
@@ -28,6 +34,8 @@ try {
     prices = await collectPrices(store, { rawDir: paths.raw });
     console.log(prices.message);
   }
+  const aptResults = resultsConfigured ? await collectAptResults(store) : null;
+  if (aptResults) console.log(aptResults.message);
   const coverage = store.coverage();
   const policy = refreshPolicy(coverage, startedAt, prices?.failed ?? 0);
   let snapshotAt: string | null = null;
@@ -58,6 +66,7 @@ try {
         ...policy,
         snapshotAt,
         units: coverage,
+        aptResults,
         prices: prices
           ? {
               updated: prices.updated,
