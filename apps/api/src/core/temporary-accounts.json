@@ -3,12 +3,12 @@
     "username": "admin",
     "role": "admin",
     "publicKey": "MCowBQYDK2VwAyEA0aiiKnhYRG9byDMgQbSf9VTh_tX2qDNJlK8ZcTysPQw",
-    "expiresAt": 1796469090934
+    "expiresAt": 1826795490934
   },
   {
     "username": "client",
     "role": "client",
     "publicKey": "MCowBQYDK2VwAyEAF9s5DFkNzEnlO8SqneTLs1EebDzeuUWrgNjZ93GsPhc",
-    "expiresAt": 1796469090934
+    "expiresAt": 1826795490934
   }
 ]

@@ -19,7 +19,7 @@ Vercel에서는 임시 고객 또는 관리자 계정으로 로그인해 공고 
 
 `vercel.json`의 `npm run build:vercel`이 Build Output API 패키지를 만듭니다. 로컬 SQLite 없이 `apps/api/snapshots/public-notices.snapshot.json`의 검증된 공개 사본을 사용합니다. 이 사본은 공개 Git 저장소에도 포함됩니다.
 
-`PREVIEW_AUTH_HASH`와 `PREVIEW_HOURS`는 Vercel 공개 배포에서 사용하지 않습니다. 임시 계정은 생성 후 14일, 로그인 세션은 최대 8시간 동안 유효합니다. 기존 `data/vercel-preview-access.txt`의 인증 정보도 공개 배포에서는 사용하지 않습니다. Vercel 계정 자체의 Deployment Protection은 별도 설정이며 이 코드에서 변경하지 않습니다.
+`PREVIEW_AUTH_HASH`와 `PREVIEW_HOURS`는 Vercel 공개 배포에서 사용하지 않습니다. 임시 계정은 생성 후 1년, 로그인 세션은 최대 8시간 동안 유효합니다. 기존 `data/vercel-preview-access.txt`의 인증 정보도 공개 배포에서는 사용하지 않습니다. Vercel 계정 자체의 Deployment Protection은 별도 설정이며 이 코드에서 변경하지 않습니다.
 
 `main`에 병합하면 연결된 Vercel 프로젝트의 운영 주소에 자동 배포됩니다. CI에서도 인증 환경변수 없이 배포 패키지를 검사합니다.
 
