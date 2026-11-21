@@ -77,6 +77,47 @@ test('공개 조회는 인증·만료 없이 열리고 개인 API와 변경 요�
     assert.equal((await fetch(base + path)).status, 404);
 });
 
+test('공개 조회에서 설치 파일을 제공하고 API 캐시를 막는다', async (t) => {
+  const publicData = snapshot(t);
+  const server = createServer(
+    createPreviewHandler({
+      publicReadOnly: true,
+      data: () => publicData,
+      webDirectory: join(process.cwd(), 'apps/web/dist'),
+    }),
+  );
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(async () => {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+  const address = server.address();
+  assert.ok(address && typeof address !== 'string');
+  const base = `http://127.0.0.1:${address.port}`;
+
+  const page = await fetch(base);
+  assert.match(
+    page.headers.get('content-security-policy') ?? '',
+    /worker-src 'self'; manifest-src 'self'/,
+  );
+  assert.match(await page.text(), /rel="manifest" href="\/manifest\.webmanifest"/);
+  const manifest = await fetch(base + '/manifest.webmanifest');
+  assert.match(manifest.headers.get('content-type') ?? '', /application\/manifest\+json/);
+  const data = await manifest.json();
+  assert.equal(data.display, 'standalone');
+  assert.equal(data.start_url, '/');
+  for (const path of [...data.icons.map((icon) => icon.src), '/icons/apple-touch-icon.png']) {
+    const icon = await fetch(base + path);
+    assert.equal(icon.status, 200);
+    assert.equal(icon.headers.get('content-type'), 'image/png');
+  }
+  const sw = await fetch(base + '/sw.js');
+  assert.equal(sw.status, 200);
+  assert.match(sw.headers.get('content-type') ?? '', /text\/javascript/);
+  const api = await fetch(base + '/api/bootstrap');
+  assert.match(api.headers.get('cache-control') ?? '', /no-store/);
+});
+
 test('공개 사본에 개인 조건·관심·인증키·알 수 없는 항목을 넣거나 손상시키면 거부한다', (t) => {
   const publicData = snapshot(t);
   for (const mutate of [
@@ -104,7 +145,7 @@ test('공개 사본에 개인 조건·관심·인증키·알 수 없는 항목�
   envelope.sha256 = '0'.repeat(64);
   assert.throws(() => decodeSnapshot(JSON.stringify(envelope)));
 });
-test('Vercel 빌드는 DB 없이 보호된 단일 함수와 빈 정적 디렉터리를 만든다', (t) => {
+test('Vercel 빌드는 DB 없이 보호된 단일 함수와 설치 파일을 포함한 단일 함수를 만든다', (t) => {
   const publicData = snapshot(t);
   const root = mkdtempSync(join(tmpdir(), 'vercel-build-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -118,6 +159,11 @@ test('Vercel 빌드는 DB 없이 보호된 단일 함수와 빈 정적 디렉터
     'responsive.css',
     'favicon.svg',
     'icons/apple-touch-icon.png',
+    'manifest.webmanifest',
+    'sw.js',
+    'icons/icon-192.png',
+    'icons/icon-512.png',
+    'icons/maskable-512.png',
   ])
     writeFileSync(join(web, file), 'test asset');
   writeFileSync(join(root, 'apps/api/dist/preview-handler.mjs'), 'export default () => {};');
@@ -129,6 +175,9 @@ test('Vercel 빌드는 DB 없이 보호된 단일 함수와 빈 정적 디렉터
     publicReadOnly: true,
   });
   assert.deepEqual(readdirSync(join(root, '.vercel/output/static')), []);
+  assert.equal(readFileSync(join(fn, 'web/sw.js'), 'utf8'), 'test asset');
+  assert.equal(readFileSync(join(fn, 'web/manifest.webmanifest'), 'utf8'), 'test asset');
+  assert.ok(readdirSync(join(fn, 'web/icons')).includes('maskable-512.png'));
   const config = JSON.parse(readFileSync(join(root, '.vercel/output/config.json'), 'utf8'));
   assert.equal(config.routes[0].dest, '/index?__preview_path=$1');
   assert.equal(

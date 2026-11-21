@@ -11,7 +11,7 @@ createRoot(document.getElementById('root')!).render(
 if (
   'serviceWorker' in navigator &&
   window.isSecureContext &&
-  !document.querySelector('meta[name="cheongyak-preview"]')
+  !document.querySelector('meta[name="cheongyak-preview"][content="protected"]')
 ) {
   window.addEventListener('load', () => {
     navigator.serviceWorker

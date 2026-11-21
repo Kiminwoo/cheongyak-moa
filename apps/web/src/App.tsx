@@ -40,10 +40,8 @@ function useInstallation() {
     );
     const ready = (event: Event) => {
         const e = event as InstallPromptEvent;
-        {
-          e.preventDefault();
-          setPrompt(e);
-        }
+        e.preventDefault();
+        setPrompt(e);
       },
       done = () => {
         setInstalled(true);
@@ -85,6 +83,9 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
     dataModeInitialized = useRef(false),
     mounted = useRef(true),
     { installed, install } = useInstallation();
+  const previewMode = document.querySelector<HTMLMetaElement>(
+    'meta[name="cheongyak-preview"]',
+  )?.content;
   const readOnly = data?.readOnly === true;
   const openProfile = () => {
     if (!data || readOnly) return;
@@ -116,7 +117,11 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
     const controller = new AbortController();
     refresh(controller.signal).catch((e) => {
       if (!(e instanceof Error && e.name === 'AbortError')) {
-        setError('로컬 서버에 연결하지 못했어요. 서버 실행 상태를 확인해 주세요.');
+        setError(
+          previewMode === 'public'
+            ? '공고를 불러오지 못했어요. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.'
+            : '로컬 서버에 연결하지 못했어요. 서버 실행 상태를 확인해 주세요.',
+        );
         setLoading(false);
       }
     });
@@ -138,7 +143,7 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
       window.removeEventListener('offline', offlineEvent);
       window.removeEventListener('app-update-ready', update);
     };
-  }, [refresh]);
+  }, [refresh, previewMode]);
   useEffect(() => {
     if (!message) return;
     const timer = setTimeout(() => setMessage(''), 5500);
@@ -301,7 +306,7 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
         view={view}
         onNavigate={navigate}
         favoriteCount={favoriteCount}
-        onInstall={installApp}
+        onInstall={previewMode === 'protected' ? undefined : installApp}
         installed={installed}
       />
       {readOnly && (
@@ -529,12 +534,13 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
             </button>
           </div>
           <p className="dialog-description">
-            지원하는 브라우저에서는 주소창의 설치 아이콘 또는 메뉴의 ‘앱 설치’를 선택하세요.
-            iPhone·iPad는 Safari 공유 메뉴의 ‘홈 화면에 추가’를 이용할 수 있어요.
+            Android에서는 Chrome 메뉴에서 ‘홈 화면에 추가’ 또는 ‘앱 설치’를 선택하세요.
+            iPhone·iPad에서는 Safari의 공유 메뉴에서 ‘홈 화면에 추가’를 선택하세요.
           </p>
           <div className="detail-alert">
-            설치해도 현재 PC의 로컬 서버가 실행 중이어야 데이터를 사용할 수 있어요. 휴대폰 접속은
-            별도 배포가 필요합니다.
+            {readOnly || previewMode === 'public'
+              ? '홈 화면의 청약모아 아이콘으로 바로 열 수 있어요. 공고를 불러오려면 인터넷이 필요합니다.'
+              : '이 PC에서 운영하는 로컬 버전입니다. 휴대폰에서는 공개 주소를 열어 설치해 주세요.'}
           </div>
           <p className="helper">
             HTTPS 또는 localhost에서 지원합니다. 이 버전은 화면 파일만 오프라인 보관하며 공고·사용자
