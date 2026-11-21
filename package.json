@@ -39,6 +39,7 @@
     "collect:retry": "node --experimental-sqlite --env-file-if-exists=.env apps/api/dist/cli/collect.mjs --boards --retry-failed",
     "precoverage": "npm run build:api",
     "coverage": "node --experimental-sqlite apps/api/dist/cli/coverage.mjs",
+    "collect:ih": "npm run collect:local -- --ih",
     "precollect:local": "npm run build:api",
     "precollect:boards": "npm run build:api",
     "collect:boards": "node --experimental-sqlite --env-file-if-exists=.env apps/api/dist/cli/boards.mjs",

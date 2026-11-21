@@ -47,7 +47,7 @@ try {
     );
   }
   if (policy.limited.length)
-    console.log(`별도 확인이 필요한 게시판: ${policy.limited.join(', ')} · 전국 연동 완료 아님`);
+    console.log(`별도 확인이 필요한 수집 경로: ${policy.limited.join(', ')} · 전국 연동 완료 아님`);
   mkdirSync(join(root, 'data'), { recursive: true });
   writeFileSync(
     join(root, 'data', 'refresh-report.json'),

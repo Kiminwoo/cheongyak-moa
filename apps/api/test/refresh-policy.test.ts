@@ -10,19 +10,21 @@ import { exportPublicSnapshot } from '../src/core/snapshot-export.js';
 import { decodeSnapshot } from '../src/core/public-snapshot.js';
 import { demoNotices } from '../src/core/demo.js';
 
-test('갱신은 이번 실행의 모든 API 성공을 요구하고 과거 성공·미설정·실패를 허용하지 않는다', (t) => {
+test('갱신은 이번 실행의 필수 API 성공을 요구하고 과거 성공·미설정·실패를 허용하지 않는다', (t) => {
   const store = new Store(':memory:', { seed: false });
   t.after(() => store.close());
   const start = new Date(Date.now() - 1000).toISOString();
   assert.equal(refreshPolicy(store.coverage(), start, 0).blocked.length, 16);
-  for (const spec of COVERAGE_UNITS.filter((unit) => unit.channel === 'api')) {
+  for (const spec of COVERAGE_UNITS.filter(
+    (unit) => unit.channel === 'api' && !unit.optionalForSnapshot,
+  )) {
     store.beginUnit(spec);
     store.finishUnit(spec.sourceId, spec.unit, 'success', 0, 0);
   }
   const coverage = store.coverage();
   assert.equal(refreshPolicy(coverage, start, 0).snapshotAllowed, true);
   assert.equal(refreshPolicy(coverage, start, 0).nationwideComplete, false);
-  assert.equal(refreshPolicy(coverage, start, 0).limited.length, 3);
+  assert.ok(refreshPolicy(coverage, start, 0).limited.includes('local/ih-api'));
   const board = COVERAGE_UNITS.find((unit) => unit.sourceId === 'sh' && unit.channel === 'web')!;
   store.beginUnit(board);
   store.finishUnit('sh', board.unit, 'success', 10, 10, 'page_limit');

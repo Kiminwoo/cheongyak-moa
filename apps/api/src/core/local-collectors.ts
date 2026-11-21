@@ -9,6 +9,7 @@ import { inspectNotice } from './data-quality.js';
 import { saveRaw } from './ingestion.js';
 import { boardIdentity } from './board-collectors.js';
 import { COVERAGE_UNITS } from './coverage.js';
+import { collectIH } from './ih-collector.js';
 
 interface LocalCollectionOptions {
   env?: Environment;
@@ -25,6 +26,8 @@ export async function collectLocal(
 ): Promise<CollectionResult[]> {
   const results: CollectionResult[] = [];
   for (const feed of MYHOME_FEEDS) results.push(...(await collectMyhomeFeed(store, feed, options)));
+  if ((options.env ?? process.env).IH_SERVICE_KEY?.trim())
+    results.push(...(await collectIH(store, options)));
   return results;
 }
 

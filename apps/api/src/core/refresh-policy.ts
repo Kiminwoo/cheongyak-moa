@@ -8,14 +8,18 @@ export function refreshPolicy(units: CoverageUnit[], startedAt: string, priceFai
     unit.startedAt >= startedAt &&
     !!unit.endedAt &&
     unit.endedAt >= unit.startedAt;
-  const required = COVERAGE_UNITS.filter((unit) => unit.implemented && unit.channel === 'api');
+  const required = COVERAGE_UNITS.filter(
+    (unit) => unit.implemented && unit.channel === 'api' && !unit.optionalForSnapshot,
+  );
   const blocked = required
     .filter((spec) => {
       const unit = units.find((item) => item.sourceId === spec.sourceId && item.unit === spec.unit);
       return !unit || !fresh(unit);
     })
     .map((unit) => `${unit.sourceId}/${unit.unit}`);
-  const limited = COVERAGE_UNITS.filter((unit) => unit.channel === 'web')
+  const limited = COVERAGE_UNITS.filter(
+    (unit) => unit.channel === 'web' || unit.optionalForSnapshot,
+  )
     .filter((spec) => {
       const unit = units.find((item) => item.sourceId === spec.sourceId && item.unit === spec.unit);
       return !spec.implemented || !unit || !fresh(unit) || unit.errorCode === 'page_limit';

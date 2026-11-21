@@ -5,7 +5,16 @@ import { MYHOME_FEEDS } from './myhome.js';
 export type UnitSpec = Pick<
   CoverageUnit,
   'sourceId' | 'unit' | 'label' | 'channel' | 'implemented' | 'scope'
->;
+> & { optionalForSnapshot?: true };
+export const IH_COVERAGE: UnitSpec = {
+  sourceId: 'local',
+  unit: 'ih-api',
+  label: '인천도시공사 분양·임대 API',
+  channel: 'api',
+  implemented: true,
+  scope: '공고 게시일·제목·원문 링크 · 접수 일정과 금액은 원문 확인',
+  optionalForSnapshot: true,
+};
 export const LH_CATEGORIES = ['05', '06', '13', '39'] as const;
 export const COVERAGE_UNITS: UnitSpec[] = [
   ...HOME_OPERATIONS.map(([operation, , label]) => ({
@@ -34,6 +43,7 @@ export const COVERAGE_UNITS: UnitSpec[] = [
       scope: '마이홈 API 응답에 포함된 식별 가능한 기관만 · 자체 공고 전체 아님',
     })),
   ),
+  IH_COVERAGE,
   ...(['sh', 'gh'] as const).map((sourceId) => ({
     sourceId,
     unit: 'official-board',

@@ -35,7 +35,7 @@ export interface QualityIssue {
 }
 export interface Notice {
   issuerName?: string;
-  provider?: 'myhome' | 'sh-board' | 'gh-board';
+  provider?: 'myhome' | 'sh-board' | 'gh-board' | 'ih-api';
   publicationDate?: string;
   withdrawnFromProvider?: boolean;
   pricing?: {
