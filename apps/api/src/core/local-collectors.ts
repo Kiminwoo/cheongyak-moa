@@ -18,6 +18,7 @@ interface LocalCollectionOptions {
   today?: string;
   onlyFailed?: boolean;
   includeClosed?: boolean;
+  includeIh?: boolean;
 }
 
 export async function collectLocal(
@@ -26,7 +27,7 @@ export async function collectLocal(
 ): Promise<CollectionResult[]> {
   const results: CollectionResult[] = [];
   for (const feed of MYHOME_FEEDS) results.push(...(await collectMyhomeFeed(store, feed, options)));
-  if ((options.env ?? process.env).IH_SERVICE_KEY?.trim())
+  if (options.includeIh !== false && (options.env ?? process.env).IH_SERVICE_KEY?.trim())
     results.push(...(await collectIH(store, options)));
   return results;
 }

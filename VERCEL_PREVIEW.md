@@ -19,7 +19,16 @@ Vercel에서는 비밀번호 없이 공개 공고 사본을 조회합니다. 검
 
 ## 공고 갱신
 
-공고 사본은 자동 갱신되지 않습니다. 로컬 수집 후 `npm.cmd run snapshot:preview`를 실행하고 생성된 공개 사본을 검토·커밋·푸시하세요. 화면에는 사본 생성 시각을 표시합니다. 접수 중 여부와 마감 제외는 한국 날짜로 조회할 때 다시 계산합니다. 오래된 사본에는 새 공고가 없으므로 정기 갱신이 필요합니다.
+운영 일일 갱신은 **매일 오전 8시 한국시간(UTC 23시)**에 시작하도록 수집 전용 PC 또는 서버에 등록합니다. 청약홈 분양·가격·APT 결과, LH, 마이홈 공고와 SH·GH 게시판을 한 번 조회합니다. 필수 API와 가격·결과 검증을 통과하면 공개 사본만 `main`에 푸시합니다. 화면 반영 시각은 수집과 Vercel 빌드가 끝나는 시각입니다. 인천도시공사 직접 API는 일일 갱신에서 제외합니다.
+
+수집 전용 `main` 체크아웃에 Node.js 22 이상과 Git을 설치하고 `npm ci`를 실행합니다. 로컬 `.env`에 `APPLYHOME_SERVICE_KEY`, `LH_SERVICE_KEY`, `MYHOME_SERVICE_KEY`, `APPLYHOME_RESULTS_SERVICE_KEY`를 설정합니다. LH 인증키에 마이홈 서비스 승인도 있으면 마이홈 키를 공유할 수 있습니다. 예약을 실행하는 OS 계정의 Git 자격 증명과 커밋 작성자 설정으로 `origin/main`에 푸시할 수 있어야 합니다. `.env`와 수집 DB는 이 계정의 저장소에 보관합니다.
+
+- **Windows**에서 수집 체크아웃 루트에서 PowerShell로 `.\scripts\install-daily-refresh.ps1`을 실행합니다. 작업 스케줄러의 **CheongyakMoa Daily Refresh**에 등록되며, 해당 Windows 계정에 로그인된 상태에서 실행됩니다.
+- **Linux**에서는 cron 시간대를 UTC로 설정하고 `0 23 * * * /절대경로/node /수집체크아웃/scripts/publish-daily-data.mjs`를 수집 계정에 등록합니다. Git을 찾을 수 있도록 예약 작업의 `PATH`를 설정합니다.
+
+예약 결과는 `data/daily-refresh.log`, 수집 검증은 `data/refresh-report.json`에서 확인합니다. 중단 뒤 잠금 파일이 남았다면 수집 프로세스가 종료된 것을 확인한 다음 `data/daily-refresh.lock`을 삭제합니다. 푸시에만 실패한 경우 다음 실행에서 대기 중인 사본 커밋을 재시도합니다. 다른 커밋과 충돌한 경우 로그에서 확인할 수 있습니다.
+
+수동으로는 수집 후 `npm.cmd run snapshot:preview`를 실행해 생성된 사본을 검토·커밋·푸시할 수 있습니다. 화면에는 사본 생성 시각을 표시하며, 접수 상태는 조회 시점의 한국 날짜로 다시 계산합니다.
 
 ## PC에서 수동 배포
 
