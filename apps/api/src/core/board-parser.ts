@@ -159,8 +159,25 @@ export function parseBoardDetail(html: string, source: BoardSource, entry: Board
         '목록 제목과 일치하는 상세 본문을 확인하지 못했습니다. 대기열·접근 제한 여부를 확인해 주세요.',
       );
     const content = table.querySelector('td.cont');
-    if (!content || clean(content.textContent).length < 20)
-      throw boardError('parser_changed', '상세 공고 본문 구조를 확인하지 못했습니다.');
+    if (!content) throw boardError('parser_changed', '상세 공고 본문 구조를 확인하지 못했습니다.');
+    if (clean(content.textContent).length < 20) {
+      const hasAttachment =
+        source === 'sh' &&
+        [...table.querySelectorAll('a[href*="htmlConverter.do"]')].some((link) => {
+          const url = URL.parse(link.getAttribute('href') ?? '', entry.url);
+          return (
+            !!url &&
+            url.origin === new URL(entry.url).origin &&
+            !url.username &&
+            !url.password &&
+            url.pathname === '/main/com/util/htmlConverter.do' &&
+            url.searchParams.get('seq') === entry.id &&
+            /^\d+$/.test(url.searchParams.get('file_seq') ?? '')
+          );
+        });
+      if (!hasAttachment)
+        throw boardError('parser_changed', '상세 공고 본문 구조를 확인하지 못했습니다.');
+    }
     const schedules: Schedule[] = [];
     let address = '';
     for (const row of content.querySelectorAll('tr')) {

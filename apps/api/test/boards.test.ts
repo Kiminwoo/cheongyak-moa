@@ -37,6 +37,11 @@ test('첨부 전용 일정은 미확인으로 두고 게시일을 자격 기준�
   );
   assert.equal(scheduled.starts, '2026-11-09');
   assert.equal(scheduled.deadline, '2026-11-20');
+  const attachment =
+    '<tr><td><a href="/main/com/util/htmlConverter.do?seq=100&amp;file_seq=1">미리보기</a></td></tr>';
+  const shortDetail = detail('첨부 참고').replace('</table>', attachment + '</table>');
+  assert.equal(parseBoardDetail(shortDetail, 'sh', entry).deadline, null);
+  assert.throws(() => parseBoardDetail(shortDetail.replace('seq=100', 'seq=200'), 'sh', entry));
   assert.throws(() => parseBoardDetail('<html>대기열 안내</html>', 'sh', entry));
 });
 
