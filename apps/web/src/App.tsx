@@ -294,7 +294,9 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
     [data, filters, view],
   );
   const favoriteCount = data?.notices.filter((n) => n.favorite).length || 0;
-  const detail = modal?.type === 'detail' ? data?.notices.find((n) => n.id === modal.id) : null;
+  const archived = modal?.type === 'detail' && data?.pastResults?.find((n) => n.id === modal.id);
+  const detail =
+    modal?.type === 'detail' ? archived || data?.notices.find((n) => n.id === modal.id) : null;
   const [eyebrow, title, description] = viewCopy[view];
   return (
     <>
@@ -374,6 +376,24 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
                     }));
                   }}
                 />
+                {(view === 'all' || view === 'matching') && !!data.pastResults?.length && (
+                  <details className="detail-section">
+                    <summary>지난 청약 결과 ({data.pastResults.length}건)</summary>
+                    <ul className="past-results">
+                      {data.pastResults.map((notice) => (
+                        <li key={notice.id}>
+                          <button
+                            className="archive-link"
+                            onClick={() => setModal({ type: 'detail', id: notice.id })}
+                          >
+                            {notice.title}
+                          </button>
+                          <span>{notice.winnerDate} 발표</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
                 {view === 'sources' ? (
                   readOnly ? (
                     <section id="sources-panel">
@@ -515,12 +535,12 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
       {detail && (
         <Modal onClose={closeModal} label="청약 공고 상세">
           <NoticeDetail
-            readOnly={readOnly}
+            readOnly={readOnly || !!archived}
             notice={detail}
             onClose={closeModal}
             onFavorite={saveFavorite}
             pending={pending.has(detail.id)}
-            offline={offline || readOnly}
+            offline={offline || readOnly || !!archived}
             requestFn={requestFn}
           />
         </Modal>

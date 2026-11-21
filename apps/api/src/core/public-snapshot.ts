@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { gzipSync, gunzipSync } from 'node:zlib';
-import { isRecord } from '@cheongyak-moa/contracts';
+import { isRecord, PAST_RESULTS_LIMIT } from '@cheongyak-moa/contracts';
 import type { BootstrapData } from '@cheongyak-moa/contracts';
 import { assertNoSecrets } from './data-quality.js';
 
@@ -33,6 +33,7 @@ export function assertPublicSnapshot(value: unknown): asserts value is Bootstrap
     'snapshotAt',
     'profile',
     'notices',
+    'pastResults',
     'regions',
     'today',
     'sources',
@@ -43,7 +44,23 @@ export function assertPublicSnapshot(value: unknown): asserts value is Bootstrap
   ]);
   if (Object.keys(value).some((key) => !allowed.has(key)))
     throw new Error('공개 사본의 알 수 없는 최상위 항목');
-  for (const notice of value.notices) {
+  const pastResults = value.pastResults === undefined ? [] : value.pastResults;
+  if (
+    !Array.isArray(pastResults) ||
+    pastResults.length > PAST_RESULTS_LIMIT ||
+    pastResults.some(
+      (n) =>
+        !isRecord(n) ||
+        n.sourceId !== 'applyhome' ||
+        n.operation !== 'getAPTLttotPblancDetail' ||
+        n.withdrawnFromProvider ||
+        !isRecord(n.match) ||
+        n.match.stage !== 'closed' ||
+        !isRecord(n.aptResults),
+    )
+  )
+    throw new Error('공개 사본에 유효한 청약홈 마감 결과가 필요합니다.');
+  for (const notice of [...value.notices, ...pastResults]) {
     if (
       !isRecord(notice) ||
       notice.isDemo !== false ||
@@ -97,6 +114,7 @@ export function assertPublicSnapshot(value: unknown): asserts value is Bootstrap
       'favorite',
       'version',
       'match',
+      'aptResults',
     ]);
     if (Object.keys(notice).some((key) => !fields.has(key)))
       throw new Error('알 수 없는 공고 사본 항목');

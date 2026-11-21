@@ -6,7 +6,10 @@ import App from '../src/App.js';
 import { demoNotices } from '../../api/src/core/demo.js';
 import { matchNotice } from '@cheongyak-moa/domain';
 
-async function setup(t, { live = false, pricing = false, local = false, readOnly = false } = {}) {
+async function setup(
+  t,
+  { live = false, pricing = false, local = false, readOnly = false, results = false } = {},
+) {
   const w = new Window({ url: 'http://localhost:4310' });
   const prior = new Map();
   for (const [key, value] of Object.entries({
@@ -47,6 +50,34 @@ async function setup(t, { live = false, pricing = false, local = false, readOnly
       match: matchNotice(n, {}, '2026-11-08'),
     })),
   };
+  if (results) {
+    data.pastResults = [
+      {
+        ...data.notices[0],
+        id: 'past-result',
+        isDemo: false,
+        title: '지난 APT 공고',
+        deadline: '2026-11-01',
+        winnerDate: '2026-11-03',
+        aptResults: {
+          checkedAt: '2026-11-08T00:00:00.000Z',
+          competition: [
+            {
+              model: '01',
+              housingType: '084.9A',
+              rank: '1',
+              region: '해당지역',
+              units: '10',
+              applications: '123',
+              rate: '12.30',
+            },
+          ],
+          scores: [],
+          special: [],
+        },
+      },
+    ];
+  }
   const calls = [];
   if (local) {
     data.coverage = [
@@ -225,6 +256,20 @@ test('공유 화면은 실제 공고를 조회하면서 개인 조건과 관리 
   assert.ok(container.querySelector('#sources-panel').textContent.includes('공고 출처'));
   assert.ok(!container.querySelector('#sources-panel').textContent.includes('.env'));
   assert.ok(!calls.some((call) => call.method && call.method !== 'GET'));
+});
+
+test('지난 청약 결과의 공고는 상세를 열고 별도 데이터 호출 없이 경쟁률을 표시한다', async (t) => {
+  const { container, calls } = await setup(t, { readOnly: true, live: true, results: true });
+  assert.equal(container.querySelectorAll('.card').length, 1);
+  const link = container.querySelector('.archive-link');
+  assert.match(link.textContent, /지난 APT 공고/);
+  await act(async () => link.click());
+  const dialog = container.querySelector('dialog');
+  assert.match(dialog.textContent, /지난 APT 공고/);
+  const table = dialog.querySelector('table[aria-label="일반공급 경쟁률"]');
+  assert.match(table.textContent, /12\.30/);
+  assert.match(dialog.textContent, /청약홈에서 제공한 자료가 없습니다/);
+  assert.ok(!calls.some((call) => call.path?.startsWith('/api/versions/')));
 });
 
 test('기관별 마이홈 수집 경로와 정상 응답 0건을 연동 예정과 구분해서 표시한다', async (t) => {

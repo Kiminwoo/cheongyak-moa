@@ -91,6 +91,7 @@ export function apiOptions() {
           'local',
           'boards',
           'prices',
+          'results',
           'doctor',
           'import-response',
           'setup-env',

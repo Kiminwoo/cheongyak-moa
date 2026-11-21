@@ -248,11 +248,13 @@ export async function collect(
           throw Object.assign(new Error('페이지 제한 초과'), { publicCode: 'page_limit' });
         const normalized = [...staged.values()].map((notice) => {
           const existing = store.get(notice.id);
-          if (!existing?.pricing || existing.type !== notice.type) return notice;
+          if (!existing || existing.type !== notice.type) return notice;
           const preserved = {
             ...notice,
-            pricing: existing.pricing,
-            priceBasis: existing.priceBasis,
+            ...(existing.pricing
+              ? { pricing: existing.pricing, priceBasis: existing.priceBasis }
+              : {}),
+            ...(existing.aptResults ? { aptResults: existing.aptResults } : {}),
           };
           return { ...preserved, quality: inspectNotice(preserved) };
         });
