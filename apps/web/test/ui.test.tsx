@@ -197,6 +197,15 @@ async function setup(
   }
   const requestFn = async (path, options = {}) => {
     calls.push({ path, ...options });
+    if (path === '/api/refresh-data') {
+      data.dataRefresh = {
+        state: 'partial',
+        message: '일부 데이터 갱신 완료',
+        updatedAt: '2026-11-08T00:00:00.000Z',
+        details: ['게시판 GH · 접근 제한'],
+      };
+      return { ok: true };
+    }
     if (path === '/api/profile') {
       data.profile = options.body;
       data.notices = data.notices.map((n) => ({
@@ -254,6 +263,7 @@ test('공유 화면은 실제 공고를 조회하면서 개인 조건과 관리 
   await act(async () => container.querySelector('.close-dialog').click());
   await act(async () => container.querySelector('.local-chip').click());
   assert.ok(container.querySelector('#sources-panel').textContent.includes('공고 출처'));
+  assert.doesNotMatch(container.querySelector('#sources-panel').textContent, /전체 데이터 갱신/);
   assert.ok(!container.querySelector('#sources-panel').textContent.includes('.env'));
   assert.ok(!calls.some((call) => call.method && call.method !== 'GET'));
 });
@@ -286,6 +296,22 @@ test('기관별 마이홈 수집 경로와 정상 응답 0건을 연동 예정�
   assert.ok(panel.textContent.includes('미연동'));
   assert.ok(panel.textContent.includes('robots_denied'));
   assert.ok(panel.textContent.includes('검증 이력 없음'));
+});
+
+test('관리자 데이터 연결 화면에서 전체 갱신을 실행하고 결과를 확인한다', async (t) => {
+  const { container, calls } = await setup(t, { local: true });
+  await act(async () => container.querySelector('.local-chip').click());
+  const panel = container.querySelector('#sources-panel');
+  const button = [...panel.querySelectorAll('button')].find(
+    (b) => b.textContent === '전체 데이터 갱신',
+  );
+  await act(async () => button.click());
+  assert.equal(
+    calls.filter((call) => call.path === '/api/refresh-data' && call.method === 'POST').length,
+    1,
+  );
+  assert.match(panel.querySelector('[role="status"]').textContent, /일부 데이터 갱신 완료/);
+  assert.match(panel.textContent, /게시판 GH · 접근 제한/);
 });
 
 test('접수 중 통계 카드를 클릭하면 해당 공고만 표시하고 다시 클릭하거나 필터를 해제할 수 있다', async (t) => {
