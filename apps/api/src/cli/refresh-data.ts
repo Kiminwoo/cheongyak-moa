@@ -6,15 +6,37 @@ import { collect } from '../core/collectors.js';
 import { collectLocal } from '../core/local-collectors.js';
 import { collectBoards } from '../core/board-collectors.js';
 import { collectAptResults } from '../core/applyhome-results.js';
+import { myhomeKey } from '../core/config.js';
 import { collectPrices } from '../core/prices.js';
 import { refreshPolicy } from '../core/refresh-policy.js';
 import { exportPublicSnapshot } from '../core/snapshot-export.js';
 const root = projectRoot(import.meta.url);
 const paths = dataPaths(root);
-const store = new Store(paths.database, { seed: false });
-const startedAt = new Date().toISOString();
+const daily = process.argv.includes('--daily');
 const resultsConfigured = Boolean(process.env.APPLYHOME_RESULTS_SERVICE_KEY?.trim());
-try {
+const missing = daily
+  ? [
+      ['APPLYHOME_SERVICE_KEY', process.env.APPLYHOME_SERVICE_KEY],
+      ['LH_SERVICE_KEY', process.env.LH_SERVICE_KEY],
+      ['MYHOME_SERVICE_KEY 또는 LH_SERVICE_KEY', myhomeKey(process.env)],
+      ['APPLYHOME_RESULTS_SERVICE_KEY', process.env.APPLYHOME_RESULTS_SERVICE_KEY],
+    ]
+      .filter(([, value]) => !value?.trim())
+      .map(([key]) => key)
+  : [];
+if (missing.length) {
+  console.error(`일일 갱신에 필요한 설정 · ${missing.join(', ')}`);
+  process.exitCode = 1;
+} else {
+  const store = new Store(paths.database, { seed: false });
+  try {
+    await refresh(store, new Date().toISOString());
+  } finally {
+    store.close();
+  }
+}
+
+async function refresh(store: Store, startedAt: string) {
   console.log('전체 API 수집 → 게시판 점검 → 가격 보강 → 검증 → 공개 사본 갱신을 시작합니다.');
   for (const result of await collect(store, {
     rawDir: paths.raw,
@@ -22,7 +44,7 @@ try {
     includeClosed: resultsConfigured,
   }))
     console.log(`${result.source}: ${result.status} · ${result.count}건 · ${result.message}`);
-  for (const result of await collectLocal(store, { rawDir: paths.raw }))
+  for (const result of await collectLocal(store, { rawDir: paths.raw, includeIh: !daily }))
     console.log(`${result.source}: ${result.status} · ${result.count}건 · ${result.message}`);
   for (const result of await collectBoards(store, { rawDir: paths.raw }))
     console.log(
@@ -39,7 +61,8 @@ try {
   const coverage = store.coverage();
   const policy = refreshPolicy(coverage, startedAt, prices?.failed ?? 0);
   let snapshotAt: string | null = null;
-  if (policy.snapshotAllowed) {
+  const resultsBlocked = daily && !!aptResults?.failed;
+  if (policy.snapshotAllowed && !resultsBlocked) {
     const snapshot = exportPublicSnapshot(store.db, root);
     snapshotAt = snapshot.snapshotAt ?? null;
     console.log(
@@ -51,7 +74,7 @@ try {
   } else {
     process.exitCode = 1;
     console.log(
-      `검증 미완료 · API 미완료 ${policy.blocked.length}개 · 가격 실패 ${policy.priceFailures}건 · 기존 배포 사본 유지`,
+      `검증 미완료 · API 미완료 ${policy.blocked.length}개 · 가격 실패 ${policy.priceFailures}건 · 청약홈 결과 실패 ${aptResults?.failed ?? 0}건 · 기존 배포 사본 유지`,
     );
   }
   if (policy.limited.length)
@@ -64,6 +87,7 @@ try {
         startedAt,
         endedAt: new Date().toISOString(),
         ...policy,
+        snapshotAllowed: policy.snapshotAllowed && !resultsBlocked,
         snapshotAt,
         units: coverage,
         aptResults,
@@ -81,6 +105,4 @@ try {
     ) + '\n',
   );
   console.log('점검 보고서: data/refresh-report.json (Git 제외)');
-} finally {
-  store.close();
 }
