@@ -66,7 +66,7 @@ test('비밀번호로 HTML·공고·정적 파일을 보호하고 개인 정보�
   }
   assert.equal((await fetch(base, { headers: { Authorization: 'Basic wrong' } })).status, 401);
   const html = await (await fetch(base, { headers: auth })).text();
-  assert.match(html, /cheongyak-preview/);
+  assert.match(html, /name="cheongyak-preview" content="protected"/);
   assert.ok(!html.includes('rel="manifest"'));
   const res = await fetch(base + '/api/bootstrap', { headers: auth });
   assert.equal(res.status, 200);
@@ -98,6 +98,8 @@ test('공유 서버는 변경 요청·비밀 파일·관리 API를 차단하고 
     '/api/connection',
     '/api/versions/public-live',
     '/sw.js',
+    '/manifest.webmanifest',
+    '/icons/icon-192.png',
     '/app.js.map',
     '/index.mjs',
     '/notices.json',

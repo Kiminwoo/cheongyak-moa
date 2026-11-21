@@ -4,13 +4,22 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { BootstrapData } from '@cheongyak-moa/contracts';
 export const previewHash = (value: string) => createHash('sha256').update(value).digest('hex');
-const assets: Record<string, [string, string]> = {
+export const previewAssets: Record<string, [string, string]> = {
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
   '/style.css': ['style.css', 'text/css; charset=utf-8'],
   '/responsive.css': ['responsive.css', 'text/css; charset=utf-8'],
   '/favicon.svg': ['favicon.svg', 'image/svg+xml'],
   '/icons/apple-touch-icon.png': ['icons/apple-touch-icon.png', 'image/png'],
+};
+
+export const publicPreviewAssets: Record<string, [string, string]> = {
+  ...previewAssets,
+  '/manifest.webmanifest': ['manifest.webmanifest', 'application/manifest+json; charset=utf-8'],
+  '/sw.js': ['sw.js', 'text/javascript; charset=utf-8'],
+  '/icons/icon-192.png': ['icons/icon-192.png', 'image/png'],
+  '/icons/icon-512.png': ['icons/icon-512.png', 'image/png'],
+  '/icons/maskable-512.png': ['icons/maskable-512.png', 'image/png'],
 };
 
 export type PreviewAccess =
@@ -30,6 +39,11 @@ export function createPreviewHandler(
     (!/^[a-f0-9]{64}$/.test(options.authorizationHash) || !Number.isFinite(options.expiresAt))
   )
     throw new Error('Invalid preview credentials');
+  const { publicReadOnly } = options;
+  const assets = publicReadOnly ? publicPreviewAssets : previewAssets;
+  const policy = publicReadOnly
+    ? "worker-src 'self'; manifest-src 'self'"
+    : "worker-src 'none'; manifest-src 'none'";
   const expected = options.publicReadOnly ? null : Buffer.from(options.authorizationHash, 'hex');
   const digest = (value: string) => Buffer.from(previewHash(value), 'hex');
   // Bounded per-process limiter; do not trust forwarded client addresses or allocate
@@ -50,8 +64,7 @@ export function createPreviewHandler(
         'Referrer-Policy': 'no-referrer',
         'X-Frame-Options': 'DENY',
         'X-Robots-Tag': 'noindex, nofollow, noarchive',
-        'Content-Security-Policy':
-          "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; worker-src 'none'; manifest-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+        'Content-Security-Policy': `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; ${policy}; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`,
         ...extra,
       });
       res.end(value);
@@ -89,13 +102,15 @@ export function createPreviewHandler(
       if (assets[path]) {
         const [file, type] = assets[path];
         let bytes = readFileSync(join(webDirectory, file));
-        if (path === '/')
+        if (path === '/') {
+          const mode = publicReadOnly ? 'public' : 'protected';
+          const html = bytes
+            .toString('utf8')
+            .replace('<head>', `<head><meta name="cheongyak-preview" content="${mode}">`);
           bytes = Buffer.from(
-            bytes
-              .toString('utf8')
-              .replace('<head>', '<head><meta name="cheongyak-preview" content="true">')
-              .replace(/<link rel="manifest"[^>]*>/g, ''),
+            publicReadOnly ? html : html.replace(/<link rel="manifest"[^>]*>/g, ''),
           );
+        }
         return send(200, req.method === 'HEAD' ? '' : bytes, type);
       }
       return send(404, '{"error":"페이지를 찾을 수 없습니다."}');

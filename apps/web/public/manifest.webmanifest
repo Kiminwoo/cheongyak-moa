@@ -2,7 +2,7 @@
   "id": "/",
   "name": "청약모아 — 내 조건으로 찾는 청약",
   "short_name": "청약모아",
-  "description": "여러 기관의 청약을 사용자 조건으로 비교하는 로컬 웹앱",
+  "description": "여러 기관의 청약 공고와 일정을 한곳에서 확인하세요.",
   "lang": "ko-KR",
   "start_url": "/",
   "scope": "/",

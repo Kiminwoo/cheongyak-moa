@@ -64,7 +64,7 @@ export function Header({
   onInstall,
   installed,
   readOnly,
-}: NavigationProps & { onInstall: () => void; installed: boolean }) {
+}: NavigationProps & { onInstall?: () => void; installed: boolean }) {
   return (
     <header className="header">
       <div className="header-inner">
@@ -90,7 +90,7 @@ export function Header({
             ))}
         </nav>
         <div className="header-actions">
-          {!readOnly && (
+          {onInstall && (
             <button className="install-button" onClick={onInstall}>
               {installed ? '앱 사용 안내' : '앱 설치 안내'} <span aria-hidden="true">↧</span>
             </button>

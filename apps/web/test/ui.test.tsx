@@ -179,6 +179,13 @@ test('React 컴포넌트가 공고와 모바일 메뉴를 렌더링한다', asyn
 test('공유 화면은 실제 공고를 조회하면서 개인 조건과 관리 기능을 제공하지 않는다', async (t) => {
   const { container, calls } = await setup(t, { live: true, readOnly: true });
   assert.ok(container.textContent.includes('공유 미리보기 · 조회 전용'));
+  await act(async () => container.querySelector('.install-button').click());
+  const install = container.querySelector('dialog');
+  assert.equal(install.getAttribute('aria-label'), '웹앱 설치 안내');
+  assert.match(install.textContent, /Chrome.*홈 화면에 추가/);
+  assert.match(install.textContent, /Safari.*홈 화면에 추가/);
+  assert.match(install.textContent, /인터넷이 필요/);
+  await act(async () => container.querySelector('.close-dialog').click());
   assert.equal(container.querySelectorAll('.card').length, 1);
   assert.equal(container.querySelector('#profile-summary'), null);
   assert.equal(container.querySelector('.hero-link'), null);
