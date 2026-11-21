@@ -184,6 +184,7 @@ export interface ConnectionInfo extends CollectionConfig {
   environment: { exists: boolean; restartRequired: boolean };
   importFormats: ImportFormat[];
   maxImportBytes: number;
+  publishOnRefresh?: boolean;
 }
 export interface SourceInfo {
   id: ApiSource;
@@ -203,6 +204,12 @@ export interface QualitySummary {
   missingSchedule: number;
   missingPrice: number;
 }
+export interface DataRefreshStatus {
+  state: 'running' | 'success' | 'partial' | 'failed';
+  message: string;
+  updatedAt: string;
+  details?: string[];
+}
 export interface BootstrapData {
   coverage?: CoverageUnit[];
   readOnly?: boolean;
@@ -215,6 +222,7 @@ export interface BootstrapData {
   sources: SourceInfo[];
   runs: CollectionRun[];
   collecting: boolean;
+  dataRefresh?: DataRefreshStatus;
   connection: ConnectionInfo;
   quality: QualitySummary;
 }

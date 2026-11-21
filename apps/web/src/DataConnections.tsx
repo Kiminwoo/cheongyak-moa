@@ -281,7 +281,7 @@ export default function DataConnections({
       </div>
       <div className="source-actions">
         <button className="primary" disabled={disabled || !!connection?.error} onClick={onCollect}>
-          {data.collecting ? '공식 공고 수집 중…' : '공식 공고 수집 실행'}
+          {data.collecting ? '데이터 갱신 중…' : '전체 데이터 갱신'}
         </button>
         <button className="secondary" disabled={disabled} onClick={onRefresh}>
           상태 새로고침
@@ -301,6 +301,26 @@ export default function DataConnections({
           </button>
         )}
       </div>
+      {data.dataRefresh && (
+        <div className="detail-alert">
+          <p role="status">{data.dataRefresh.message}</p>
+          {data.dataRefresh.state !== 'running' && (
+            <p className="helper">{dateTime(data.dataRefresh.updatedAt)}</p>
+          )}
+          {!!data.dataRefresh.details?.length && (
+            <ul>
+              {data.dataRefresh.details.map((detail, index) => (
+                <li key={index}>{detail}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+      <p className="helper">
+        {connection?.publishOnRefresh
+          ? '검증된 공개 사본을 발행합니다. Vercel 배포가 끝나면 운영 사이트에 반영됩니다.'
+          : '청약홈·LH·마이홈·SH/GH 공고와 주택형별 공급 정보, 청약홈 APT 결과를 갱신합니다.'}
+      </p>
       <p className="helper">
         게시판은 기관의 자동 접근 정책을 먼저 확인합니다. 제한된 기관은 수집하지 않으며,
         첨부파일에만 있는 일정·금액은 미확인으로 표시합니다.

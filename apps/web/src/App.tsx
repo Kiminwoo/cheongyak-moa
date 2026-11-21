@@ -220,9 +220,13 @@ export default function App({ requestFn = request }: { requestFn?: RequestFn }) 
     if (readOnly) return;
     setBusy(true);
     try {
-      await requestFn('/api/collect', { method: 'POST', body: {} });
-      await refresh();
-      setMessage('공식 공고 수집을 시작했어요.');
+      await requestFn('/api/refresh-data', { method: 'POST', body: {} });
+      const next = await refresh();
+      setMessage(
+        next.collecting
+          ? '전체 데이터 갱신을 시작했습니다.'
+          : (next.dataRefresh?.message ?? '데이터 연결 현황을 확인해 주세요.'),
+      );
     } catch (e) {
       setMessage(errorMessage(e));
     } finally {

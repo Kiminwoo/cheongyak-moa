@@ -1,5 +1,10 @@
 import { isRecord, errorMessage, errorCode } from '@cheongyak-moa/contracts';
-import type { Environment, FetchJSON, ConnectionInfo } from '@cheongyak-moa/contracts';
+import type {
+  Environment,
+  FetchJSON,
+  ConnectionInfo,
+  DataRefreshStatus,
+} from '@cheongyak-moa/contracts';
 import { projectRoot as findProjectRoot, dataPaths } from './paths.js';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
@@ -11,7 +16,9 @@ import { collect } from './core/collectors.js';
 import { collectPrices } from './core/prices.js';
 import { collectLocal } from './core/local-collectors.js';
 import { collectBoards } from './core/board-collectors.js';
-import { collectionConfig } from './core/config.js';
+import type { BoardFetch } from './core/board-http.js';
+import { publishFromLocalApp, refreshLocalData } from './core/manual-refresh.js';
+import { collectionConfig, myhomeKey } from './core/config.js';
 import { pastAptResults } from './core/applyhome-results.js';
 import { summarizeQuality } from './core/data-quality.js';
 import { IMPORT_FORMATS } from './core/normalization.js';
@@ -43,15 +50,47 @@ interface AppOptions {
   store?: Store;
   env?: Environment;
   fetchFn?: FetchJSON;
+  boardFetch?: BoardFetch;
   projectRoot?: string;
 }
 export function createApp({
   store = new Store(dataPaths(ROOT).database),
   env = process.env,
   fetchFn = fetch,
+  boardFetch = fetch,
   projectRoot = ROOT,
 }: AppOptions = {}) {
   let collecting = false;
+  let dataRefresh: DataRefreshStatus | undefined;
+  const publishOnRefresh = env.PUBLISH_DATA_ON_REFRESH === '1';
+  const rawDir = join(projectRoot, 'data', 'raw');
+  function refreshStatus(state: DataRefreshStatus['state'], message: string, details?: string[]) {
+    dataRefresh = { state, message, updatedAt: new Date().toISOString(), details };
+  }
+  async function refreshAllData() {
+    if (publishOnRefresh) {
+      refreshStatus('running', '공개용 데이터 수집 및 배포 검증 중');
+      await publishFromLocalApp(projectRoot, env);
+      refreshStatus('success', '공개 사본을 발행했습니다. Vercel 배포가 끝나면 운영에 표시됩니다.');
+      return;
+    }
+    const result = await refreshLocalData(store, {
+      env,
+      fetchFn,
+      boardFetch,
+      rawDir,
+      onStage: (message) => refreshStatus('running', message),
+    });
+    refreshStatus(
+      result.succeeded ? (result.incomplete ? 'partial' : 'success') : 'failed',
+      result.succeeded
+        ? result.incomplete
+          ? '일부 데이터 갱신 완료 · 아래 수집 결과를 확인해 주세요.'
+          : '전체 데이터 갱신 완료'
+        : '갱신에 실패했습니다. 아래 수집 결과를 확인해 주세요.',
+      result.details,
+    );
+  }
   const startedAt = Date.now();
   const connection = (): ConnectionInfo => {
     let config;
@@ -68,6 +107,7 @@ export function createApp({
       environment: envFileStatus(projectRoot, startedAt),
       importFormats: IMPORT_FORMATS,
       maxImportBytes: MAX_IMPORT_BYTES,
+      publishOnRefresh,
     };
   };
   const server = createServer(async (req, res) => {
@@ -154,6 +194,7 @@ export function createApp({
           })),
           runs: store.runs(),
           collecting,
+          dataRefresh,
         });
       }
       if (req.method === 'GET' && url.pathname === '/api/connection')
@@ -192,11 +233,39 @@ export function createApp({
       }
       if (req.method === 'GET' && url.pathname.startsWith('/api/versions/'))
         return send(200, store.versions(decodeURIComponent(url.pathname.slice(14))));
+      if (req.method === 'POST' && url.pathname === '/api/refresh-data') {
+        if (collecting) return send(409, { error: '수집이 이미 실행 중입니다.' });
+        const config = collectionConfig(env);
+        if (
+          !config.configured.applyhome &&
+          !config.configured.lh &&
+          !myhomeKey(env) &&
+          !env.APPLYHOME_RESULTS_SERVICE_KEY?.trim()
+        )
+          return send(400, {
+            error: '.env에 공식 API 인증키를 설정하고 서버를 다시 시작해 주세요.',
+          });
+        collecting = true;
+        send(202, { ok: true });
+        refreshAllData()
+          .catch(() =>
+            refreshStatus(
+              'failed',
+              publishOnRefresh
+                ? '운영 갱신 실패 · data/daily-refresh.log에서 원인을 확인해 주세요.'
+                : '갱신에 실패했습니다. 데이터 저장소를 확인해 주세요.',
+            ),
+          )
+          .finally(() => {
+            collecting = false;
+          });
+        return;
+      }
       if (req.method === 'POST' && url.pathname === '/api/collect-boards') {
         if (collecting) return send(409, { error: '수집이 이미 실행 중입니다.' });
         collecting = true;
         send(202, { ok: true });
-        collectBoards(store, { env, rawDir: join(projectRoot, 'data', 'raw') })
+        collectBoards(store, { env, rawDir, fetchFn: boardFetch })
           .catch(() => console.error('공식 게시판 수집 초기화에 실패했습니다.'))
           .finally(() => {
             collecting = false;
