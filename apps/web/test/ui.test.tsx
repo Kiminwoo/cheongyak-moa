@@ -8,9 +8,17 @@ import { matchNotice } from '@cheongyak-moa/domain';
 
 async function setup(
   t,
-  { live = false, pricing = false, local = false, readOnly = false, results = false } = {},
+  {
+    live = false,
+    pricing = false,
+    local = false,
+    readOnly = false,
+    results = false,
+    role = null,
+    url = 'http://localhost:4310',
+  } = {},
 ) {
-  const w = new Window({ url: 'http://localhost:4310' });
+  const w = new Window({ url });
   const prior = new Map();
   for (const [key, value] of Object.entries({
     window: w,
@@ -206,6 +214,9 @@ async function setup(
       };
       return { ok: true };
     }
+    if (path === '/api/admin/summary') {
+      return { snapshotAt: '2026-11-08T00:00:00Z', accountsExpireAt: Date.parse('2027-11-21') };
+    }
     if (path === '/api/profile') {
       data.profile = options.body;
       data.notices = data.notices.map((n) => ({
@@ -223,7 +234,8 @@ async function setup(
     if (path.startsWith('/api/versions/')) return [];
     return structuredClone(data);
   };
-  await act(async () => root.render(<App requestFn={requestFn} />));
+  const account = role ? { role, logout: async () => {} } : undefined;
+  await act(async () => root.render(<App requestFn={requestFn} account={account} />));
   t.after(async () => {
     await act(async () => root.unmount());
     await w.happyDOM.abort();
@@ -268,6 +280,25 @@ test('공유 화면은 실제 공고를 조회하면서 개인 조건과 관리 
   assert.ok(!calls.some((call) => call.method && call.method !== 'GET'));
 });
 
+test('운영 관리자에게 갱신 링크를 표시하고 실제 수집 앱으로 연결한다', async (t) => {
+  const { container, calls } = await setup(t, { role: 'admin', live: true, readOnly: true });
+  await act(async () => container.querySelector('button[aria-label="데이터 연결 현황"]').click());
+  const panel = container.querySelector('#sources-panel');
+  const link = panel.querySelector('a.admin-refresh-link');
+  assert.equal(link.textContent.trim(), '전체 데이터 갱신');
+  assert.equal(link.href, 'http://127.0.0.1:4310/?view=sources');
+  assert.match(panel.textContent, /관리자 앱의 데이터 연결 현황이 열립니다/);
+  assert.ok(calls.some((call) => call.path === '/api/admin/summary'));
+  assert.ok(!calls.some((call) => call.method === 'POST'));
+});
+
+test('고객 계정에는 운영 관리자 갱신 링크가 없다', async (t) => {
+  const { container, calls } = await setup(t, { role: 'client', live: true, readOnly: true });
+  await act(async () => container.querySelector('button[aria-label="데이터 연결 현황"]').click());
+  assert.equal(container.querySelector('#sources-panel a.admin-refresh-link'), null);
+  assert.ok(!calls.some((call) => call.path === '/api/admin/summary'));
+});
+
 test('지난 청약 결과의 공고는 상세를 열고 별도 데이터 호출 없이 경쟁률을 표시한다', async (t) => {
   const { container, calls } = await setup(t, { readOnly: true, live: true, results: true });
   assert.equal(container.querySelectorAll('.card').length, 1);
@@ -299,8 +330,11 @@ test('기관별 마이홈 수집 경로와 정상 응답 0건을 연동 예정�
 });
 
 test('관리자 데이터 연결 화면에서 전체 갱신을 실행하고 결과를 확인한다', async (t) => {
-  const { container, calls } = await setup(t, { local: true });
-  await act(async () => container.querySelector('.local-chip').click());
+  const { container, calls } = await setup(t, {
+    local: true,
+    role: 'admin',
+    url: 'http://127.0.0.1:4310/?view=sources',
+  });
   const panel = container.querySelector('#sources-panel');
   const button = [...panel.querySelectorAll('button')].find(
     (b) => b.textContent === '전체 데이터 갱신',

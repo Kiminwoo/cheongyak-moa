@@ -90,8 +90,23 @@ function ProductionAdminSummary({ requestFn }: { requestFn: RequestFn }) {
         </p>
       )}
       {error && <p role="alert">{error}</p>}
+      <div className="source-actions">
+        <a
+          className="primary admin-refresh-link"
+          href="http://127.0.0.1:4310/?view=sources"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-describedby="admin-refresh-help"
+        >
+          전체 데이터 갱신
+        </a>
+      </div>
+      <p className="helper" id="admin-refresh-help">
+        PC에서 청약모아를 실행한 뒤 누르면 관리자 앱의 데이터 연결 현황이 열립니다. 그 화면에서
+        갱신을 시작할 수 있습니다.
+      </p>
       <a href="https://github.com/Kiminwoo/cheongyak-moa/blob/main/VERCEL_PREVIEW.md#공고-갱신">
-        운영 데이터 갱신 안내
+        운영 반영 설정
       </a>
     </div>
   );
@@ -107,7 +122,12 @@ export default function App({
   const [data, setData] = useState<BootstrapData | null>(null),
     [error, setError] = useState(''),
     [loading, setLoading] = useState(true);
-  const [view, setView] = useState<View>('matching'),
+  const [view, setView] = useState<View>(() =>
+      account?.role === 'admin' &&
+      new URLSearchParams(window.location.search).get('view') === 'sources'
+        ? 'sources'
+        : 'matching',
+    ),
     [filters, setFilters] = useState(defaultFilters),
     [month, setMonth] = useState<string | null>(null);
   const [modal, setModal] = useState<
@@ -451,8 +471,7 @@ export default function App({
                       )}
                       <h3>공고 출처</h3>
                       <p>
-                        공개 모집공고를 조회하는 화면입니다. 수집·설정 기능과 개인 정보는 제공하지
-                        않습니다. 전국 모든 기관의 공고가 연동된 상태는 아닙니다.
+                        기관별로 공개 모집공고와 운영 사이트에 반영된 건수를 확인할 수 있습니다.
                       </p>
                       {data.sources.map((source) => (
                         <p key={source.id}>
