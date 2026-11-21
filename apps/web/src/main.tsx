@@ -1,10 +1,15 @@
 import React, { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.js';
+import AccountGate from './AccountGate.js';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    {document.querySelector('meta[name="cheongyak-preview"][content="accounts"]') ? (
+      <AccountGate />
+    ) : (
+      <App />
+    )}
   </StrictMode>,
 );
 

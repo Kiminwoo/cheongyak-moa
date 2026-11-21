@@ -88,6 +88,7 @@ export function apiOptions() {
         [
           'collect',
           'coverage',
+          'create-accounts',
           'local',
           'boards',
           'prices',

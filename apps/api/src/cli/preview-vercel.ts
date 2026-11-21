@@ -24,6 +24,6 @@ for (const file of ['notices.json', 'index.mjs']) {
       throw new Error('배포 자료에서 비밀정보가 발견됐습니다.');
 }
 console.log(
-  `Vercel 조회 전용 배포 파일 준비 완료 · 실제 공고 ${snapshot.notices.length}건 · 비밀번호 없이 공개`,
+  `Vercel 조회 전용 배포 파일 준비 완료 · 실제 공고 ${snapshot.notices.length}건 · 임시 계정 로그인 적용`,
 );
 console.log('배포 명령: npx.cmd vercel deploy --prebuilt');

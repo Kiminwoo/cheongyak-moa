@@ -23,6 +23,9 @@ import { pastAptResults } from './core/applyhome-results.js';
 import { summarizeQuality } from './core/data-quality.js';
 import { IMPORT_FORMATS } from './core/normalization.js';
 import { importResponse, MAX_IMPORT_BYTES } from './core/ingestion.js';
+import { createAccountAuth } from './core/accounts.js';
+import type { TemporaryAccount } from './core/accounts.js';
+import { previewData } from './preview.js';
 import { envFileStatus, initializeEnv } from './core/setup.js';
 
 const ROOT = findProjectRoot(import.meta.url);
@@ -52,6 +55,7 @@ interface AppOptions {
   fetchFn?: FetchJSON;
   boardFetch?: BoardFetch;
   projectRoot?: string;
+  accounts?: TemporaryAccount[];
 }
 export function createApp({
   store = new Store(dataPaths(ROOT).database),
@@ -59,7 +63,9 @@ export function createApp({
   fetchFn = fetch,
   boardFetch = fetch,
   projectRoot = ROOT,
+  accounts,
 }: AppOptions = {}) {
+  const auth = accounts ? createAccountAuth(accounts, { secure: false }) : null;
   let collecting = false;
   let dataRefresh: DataRefreshStatus | undefined;
   const publishOnRefresh = env.PUBLISH_DATA_ON_REFRESH === '1';
@@ -154,10 +160,27 @@ export function createApp({
       }
     }
     try {
+      if (auth && (await auth.handle(req, res, url.pathname))) return;
+      if (auth && url.pathname.startsWith('/api/')) {
+        const role = auth.session(req);
+        if (!role) return send(401, { error: '로그인이 필요합니다.' });
+        if (role === 'client') {
+          if (req.method === 'GET' && url.pathname === '/api/bootstrap')
+            return send(200, previewData(store.db));
+          return send(403, { error: '관리자 권한이 필요합니다.' });
+        }
+      }
       if (req.method === 'GET' && assets[url.pathname]) {
         const [file, type] = assets[url.pathname];
         try {
-          return send(200, readFileSync(join(PUBLIC, file)), type);
+          const bytes = readFileSync(join(PUBLIC, file));
+          const html =
+            auth && url.pathname === '/'
+              ? bytes
+                  .toString('utf8')
+                  .replace('<head>', '<head><meta name="cheongyak-preview" content="accounts">')
+              : bytes;
+          return send(200, html, type);
         } catch (error) {
           if (errorCode(error) === 'ENOENT' && url.pathname === '/app.js')
             return send(

@@ -1,3 +1,4 @@
+export type AccountRole = 'admin' | 'client';
 export type HousingType = 'sale' | 'rental' | 'officetel';
 export type HousingOwned = 'yes' | 'no' | 'unknown';
 export type View = 'matching' | 'all' | 'calendar' | 'favorites' | 'sources';

@@ -65,7 +65,12 @@ export function Header({
   onInstall,
   installed,
   readOnly,
-}: NavigationProps & { onInstall?: () => void; installed: boolean }) {
+  account,
+}: NavigationProps & {
+  onInstall?: () => void;
+  installed: boolean;
+  account?: { role: 'admin' | 'client'; logout: () => void };
+}) {
   return (
     <header className="header">
       <div className="header-inner">
@@ -91,6 +96,11 @@ export function Header({
             ))}
         </nav>
         <div className="header-actions">
+          {account && (
+            <button className="local-chip account-logout" onClick={account.logout}>
+              {account.role === 'admin' ? '관리자' : '고객'} · 로그아웃
+            </button>
+          )}
           {onInstall && (
             <button className="install-button" onClick={onInstall}>
               {installed ? '앱 사용 안내' : '앱 설치 안내'} <span aria-hidden="true">↧</span>
