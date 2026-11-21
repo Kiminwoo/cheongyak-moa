@@ -19,17 +19,19 @@ export function inspectNotice(notice: Notice): QualityIssue[] {
   if (!notice.sourceUrl) add('source_missing', '공식 공고 원문 URL이 확인되지 않았습니다.');
   if (!notice.region || notice.region === '미확인')
     add('region_missing', '공급 지역이 확인되지 않았습니다.');
-  if (
-    notice.priceWon == null &&
-    notice.depositWon == null &&
-    !notice.pricing?.models.some((model) => model.maximumWon != null)
-  )
+  if (missingPrice(notice))
     add('price_missing', '금액은 아직 제공되지 않았습니다. 0원으로 해석하지 마세요.');
   for (const schedule of notice.schedules || []) {
     if (schedule.start && schedule.end && schedule.start > schedule.end)
       add('supply_date_order', '공급유형별 접수 일정의 순서가 잘못되었습니다.', 'error');
   }
   return issues;
+}
+
+function missingPrice(notice: Notice): boolean {
+  return notice.type === 'rental'
+    ? notice.depositWon == null && notice.monthlyWon == null
+    : notice.priceWon == null && !notice.pricing?.models.some((model) => model.maximumWon != null);
 }
 
 export function summarizeQuality(notices: Notice[]): QualitySummary {
@@ -43,12 +45,7 @@ export function summarizeQuality(notices: Notice[]): QualitySummary {
     importedCount: collected.filter((n) => n.provenance?.method === 'file-import').length,
     needsReview: collected.filter((n) => n.quality?.length).length,
     missingSchedule: collected.filter((n) => !n.starts || !n.deadline).length,
-    missingPrice: collected.filter(
-      (n) =>
-        n.priceWon == null &&
-        n.depositWon == null &&
-        !n.pricing?.models.some((model) => model.maximumWon != null),
-    ).length,
+    missingPrice: collected.filter(missingPrice).length,
   };
 }
 
