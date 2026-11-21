@@ -15,10 +15,10 @@ async function setup(
     readOnly = false,
     results = false,
     role = null,
-    url = 'http://localhost:4310',
+    cloudRefreshEnabled = true,
   } = {},
 ) {
-  const w = new Window({ url });
+  const w = new Window({ url: 'http://localhost:4310' });
   const prior = new Map();
   for (const [key, value] of Object.entries({
     window: w,
@@ -215,7 +215,19 @@ async function setup(
       return { ok: true };
     }
     if (path === '/api/admin/summary') {
-      return { snapshotAt: '2026-11-08T00:00:00Z', accountsExpireAt: Date.parse('2027-11-21') };
+      return {
+        snapshotAt: '2026-11-08T00:00:00Z',
+        accountsExpireAt: Date.parse('2027-11-21'),
+        cloudRefreshEnabled,
+      };
+    }
+    if (path === '/api/admin/refresh') {
+      const started = calls.some((call) => call.path === path && call.method === 'POST');
+      return {
+        job: started
+          ? { id: 'job-mock', status: 'running', createdAt: '2026-11-08T00:00:00Z' }
+          : null,
+      };
     }
     if (path === '/api/profile') {
       data.profile = options.body;
@@ -280,23 +292,48 @@ test('공유 화면은 실제 공고를 조회하면서 개인 조건과 관리 
   assert.ok(!calls.some((call) => call.method && call.method !== 'GET'));
 });
 
-test('운영 관리자에게 갱신 링크를 표시하고 실제 수집 앱으로 연결한다', async (t) => {
+test('운영 관리자 버튼은 클라우드 갱신 작업을 요청하고 작업 중 중복 실행을 막는다', async (t) => {
   const { container, calls } = await setup(t, { role: 'admin', live: true, readOnly: true });
   await act(async () => container.querySelector('button[aria-label="데이터 연결 현황"]').click());
   const panel = container.querySelector('#sources-panel');
-  const link = panel.querySelector('a.admin-refresh-link');
-  assert.equal(link.textContent.trim(), '전체 데이터 갱신');
-  assert.equal(link.href, 'http://127.0.0.1:4310/?view=sources');
-  assert.match(panel.textContent, /관리자 앱의 데이터 연결 현황이 열립니다/);
-  assert.ok(calls.some((call) => call.path === '/api/admin/summary'));
-  assert.ok(!calls.some((call) => call.method === 'POST'));
+  const button = panel.querySelector('button.admin-refresh-button');
+  assert.equal(button.textContent.trim(), '전체 데이터 갱신');
+  assert.equal(button.disabled, false);
+  await act(async () => button.click());
+  assert.equal(button.disabled, true);
+  assert.match(
+    panel.querySelector('[role="status"]').textContent,
+    /클라우드에서 전체 데이터를 수집/,
+  );
+  assert.equal(
+    calls.filter((call) => call.path === '/api/admin/refresh' && call.method === 'POST').length,
+    1,
+  );
 });
 
-test('고객 계정에는 운영 관리자 갱신 링크가 없다', async (t) => {
+test('클라우드 수집 연결 전에는 관리자 갱신 버튼이 비활성화된다', async (t) => {
+  const { container, calls } = await setup(t, {
+    role: 'admin',
+    live: true,
+    readOnly: true,
+    cloudRefreshEnabled: false,
+  });
+  await act(async () => container.querySelector('button[aria-label="데이터 연결 현황"]').click());
+  assert.equal(container.querySelector('button.admin-refresh-button').disabled, true);
+  assert.match(
+    container.querySelector('#sources-panel').textContent,
+    /클라우드 수집 서비스 연결이 필요/,
+  );
+  assert.ok(!calls.some((call) => call.path === '/api/admin/refresh'));
+});
+
+test('고객 계정에는 운영 관리자 갱신 버튼이 없다', async (t) => {
   const { container, calls } = await setup(t, { role: 'client', live: true, readOnly: true });
   await act(async () => container.querySelector('button[aria-label="데이터 연결 현황"]').click());
-  assert.equal(container.querySelector('#sources-panel a.admin-refresh-link'), null);
-  assert.ok(!calls.some((call) => call.path === '/api/admin/summary'));
+  assert.equal(container.querySelector('#sources-panel button.admin-refresh-button'), null);
+  assert.ok(
+    !calls.some((call) => call.path === '/api/admin/summary' || call.path === '/api/admin/refresh'),
+  );
 });
 
 test('지난 청약 결과의 공고는 상세를 열고 별도 데이터 호출 없이 경쟁률을 표시한다', async (t) => {
@@ -333,8 +370,8 @@ test('관리자 데이터 연결 화면에서 전체 갱신을 실행하고 결�
   const { container, calls } = await setup(t, {
     local: true,
     role: 'admin',
-    url: 'http://127.0.0.1:4310/?view=sources',
   });
+  await act(async () => container.querySelector('button[aria-label="데이터 연결 현황"]').click());
   const panel = container.querySelector('#sources-panel');
   const button = [...panel.querySelectorAll('button')].find(
     (b) => b.textContent === '전체 데이터 갱신',

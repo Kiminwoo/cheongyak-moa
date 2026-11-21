@@ -1,0 +1,26 @@
+services:
+  - type: cron
+    name: cheongyak-moa-refresh
+    runtime: node
+    branch: main
+    region: singapore
+    plan: 0.5c-512mb
+    schedule: '0 23 * * *'
+    buildCommand: npm ci && npm run build:api
+    startCommand: npm run data:cloud
+    buildFilter:
+      ignoredPaths:
+        - apps/api/snapshots/public-notices.snapshot.json
+    envVars:
+      - key: NODE_VERSION
+        value: '22.22.0'
+      - key: APPLYHOME_SERVICE_KEY
+        sync: false
+      - key: APPLYHOME_RESULTS_SERVICE_KEY
+        sync: false
+      - key: LH_SERVICE_KEY
+        sync: false
+      - key: MYHOME_SERVICE_KEY
+        sync: false
+      - key: GITHUB_PUBLISH_TOKEN
+        sync: false

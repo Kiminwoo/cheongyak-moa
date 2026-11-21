@@ -339,9 +339,6 @@ h1 {
   font-weight: 600;
   font-size: 12px;
 }
-.admin-refresh-link {
-  text-decoration: none;
-}
 .full {
   width: 100%;
   display: flex;
