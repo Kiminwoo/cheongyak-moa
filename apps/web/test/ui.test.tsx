@@ -123,7 +123,33 @@ async function setup(t, { live = false, pricing = false, local = false, readOnly
     notice.isDemo = false;
     notice.rules = [];
     notice.rulesComplete = false;
-    if (pricing) {
+    if (pricing === 'rental') {
+      notice.type = 'rental';
+      notice.depositWon = null;
+      notice.monthlyWon = null;
+      notice.pricing = {
+        basis: 'rental-model-supply',
+        operation: 'getPblPvtRentLttotPblancMdl',
+        models: [
+          {
+            model: '1',
+            housingType: '059A',
+            supplyArea: '80.5',
+            units: 11,
+            maximumWon: 180000000,
+            rental: {
+              exclusiveArea: '59.1',
+              contractArea: '100.2',
+              generalUnits: 4,
+              youthUnits: 3,
+              newlywedUnits: 2,
+              seniorUnits: 2,
+              applicationFeeWon: 300000,
+            },
+          },
+        ],
+      };
+    } else if (pricing) {
       notice.type = 'sale';
       notice.priceWon = null;
       notice.pricing = {
@@ -321,4 +347,17 @@ test('카드에 최고금액 범위를 표시하고 상세에 주택형별 금�
   assert.ok(section.textContent.includes('084A'));
   assert.equal(section.querySelectorAll('tbody tr').length, 2);
   assert.ok(section.textContent.includes('실제 최저 분양가를 뜻하지 않습니다'));
+});
+
+test('공공지원 민간임대의 주택형 공급금액과 청약신청금을 상세에서 구분한다', async (t) => {
+  const { container } = await setup(t, { live: true, pricing: 'rental', readOnly: true });
+  assert.match(container.querySelector('.price-row').textContent, /보증금.*미확인/);
+  await act(async () => container.querySelector('.card-title').click());
+  const section = container.querySelector(
+    'section[aria-label="공공지원 민간임대 주택형별 공급 정보"]',
+  );
+  assert.match(section.textContent, /공급금액.*청약신청금/);
+  assert.match(section.textContent, /전용 59.1.*공급 80.5.*계약 100.2/);
+  assert.match(section.textContent, /청년 3.*신혼 2/);
+  assert.match(section.textContent, /30만원/);
 });

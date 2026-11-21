@@ -40,7 +40,7 @@ export interface Notice {
   withdrawnFromProvider?: boolean;
   pricing?: {
     operation: string;
-    basis: 'model-maximum';
+    basis: 'model-maximum' | 'rental-model-supply';
     models: SupplyPrice[];
   };
   id: string;
@@ -83,6 +83,15 @@ export interface SupplyPrice {
   supplyArea: string | null;
   units: number | null;
   maximumWon: number | null;
+  rental?: {
+    exclusiveArea: string | null;
+    contractArea: string | null;
+    generalUnits: number | null;
+    youthUnits: number | null;
+    newlywedUnits: number | null;
+    seniorUnits: number | null;
+    applicationFeeWon: number | null;
+  };
 }
 export interface StoredNotice extends Notice {
   updatedAt: string;

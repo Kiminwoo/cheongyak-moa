@@ -164,3 +164,79 @@ test('가격 다중 페이지의 마지막 실패나 빈 응답으로 기존 가
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('공공지원 민간임대의 주택형 상세는 공급금액과 신청금을 구분하고 임대료를 추정하지 않는다', async (t) => {
+  const store = new Store(':memory:', { seed: false });
+  const rawDir = mkdtempSync(join(tmpdir(), 'moa-rental-models-'));
+  t.after(() => {
+    store.close();
+    rmSync(rawDir, { recursive: true, force: true });
+  });
+  const rental = normalizeHome(
+    row,
+    'getPblPvtRentLttotPblancDetail',
+    'rental',
+    '공공지원 민간임대',
+  );
+  store.upsert(rental);
+  const result = await collectPrices(store, {
+    rawDir,
+    today: '2026-11-08',
+    env: { APPLYHOME_SERVICE_KEY: 'fake-key' },
+    fetchFn: async (url) => {
+      assert.ok(url.pathname.endsWith('/getPblPvtRentLttotPblancMdl'));
+      assert.equal(url.searchParams.get('cond[HOUSE_MANAGE_NO::EQ]'), '100');
+      assert.equal(url.searchParams.get('cond[PBLANC_NO::EQ]'), '200');
+      return {
+        ok: true,
+        json: async () => ({
+          matchCount: 2,
+          data: [
+            {
+              HOUSE_MANAGE_NO: '100',
+              PBLANC_NO: '200',
+              MODEL_NO: '01',
+              GP: '1군',
+              TP: 'A',
+              EXCLUSE_AR: '59.10',
+              SUPLY_AR: '80.50',
+              CNTRCT_AR: '100.20',
+              SUPLY_HSHLDCO: 11,
+              GNSPLY_HSHLDCO: 4,
+              SPSPLY_YGMN_HSHLDCO: 3,
+              SPSPLY_NEW_MRRG_HSHLDCO: 2,
+              SPSPLY_AGED_HSHLDCO: 2,
+              SUPLY_AMOUNT: '18,000',
+              SUBSCRPT_REQST_AMOUNT: '30',
+            },
+            {
+              HOUSE_MANAGE_NO: '100',
+              PBLANC_NO: '200',
+              MODEL_NO: '02',
+              TP: 'B',
+              SUPLY_HSHLDCO: 0,
+            },
+          ],
+        }),
+      };
+    },
+  });
+  assert.equal(result.updated, 1);
+  const updated = store.get(rental.id);
+  assert.equal(updated.pricing.basis, 'rental-model-supply');
+  assert.equal(updated.pricing.models[0].maximumWon, 180000000);
+  assert.deepEqual(updated.pricing.models[0].rental, {
+    exclusiveArea: '59.10',
+    contractArea: '100.20',
+    generalUnits: 4,
+    youthUnits: 3,
+    newlywedUnits: 2,
+    seniorUnits: 2,
+    applicationFeeWon: 300000,
+  });
+  assert.equal(updated.pricing.models[1].maximumWon, null);
+  assert.equal(updated.pricing.models[1].units, 0);
+  assert.equal(updated.depositWon, null);
+  assert.equal(updated.monthlyWon, null);
+  assert.ok(updated.quality.some((issue) => issue.code === 'price_missing'));
+});
