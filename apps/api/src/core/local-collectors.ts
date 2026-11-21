@@ -174,9 +174,11 @@ async function collectMyhomeFeed(
     const message =
       code === 'authentication'
         ? `마이홈 ${feed.label} API(15108420)의 인증키·활용 승인 상태를 확인해 주세요. 기존 자료는 유지됩니다.`
-        : code === 'network_denied'
-          ? `실행 환경에서 마이홈 ${feed.label} API 접속이 차단되었습니다. 기존 자료는 유지됩니다.`
-          : `마이홈 ${feed.label} 응답 형식·페이지·공고 항목 검증에 실패했습니다. 기존 자료는 유지됩니다.`;
+        : code === 'invalid_request'
+          ? `마이홈 ${feed.label} API가 요청 파라미터를 거부했습니다. 기존 자료는 유지됩니다.`
+          : code === 'network_denied'
+            ? `실행 환경에서 마이홈 ${feed.label} API 접속이 차단되었습니다. 기존 자료는 유지됩니다.`
+            : `마이홈 ${feed.label} 응답 형식·페이지·공고 항목 검증에 실패했습니다. 기존 자료는 유지됩니다.`;
     return runs.map((run) => {
       store.finishUnit(run.source, feed.unit, 'failed', fetched, 0, code);
       store.finishRun(run.id, 'failed', 0, message, 0, code);

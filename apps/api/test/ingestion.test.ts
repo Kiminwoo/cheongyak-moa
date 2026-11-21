@@ -165,3 +165,29 @@ test('네트워크 차단과 키 오류를 구분하고 URL을 노출하지 않�
   assert.equal(store.runs()[0].errorCode, 'network_denied');
   assert.ok(!JSON.stringify(store.runs()).includes('private'));
 });
+
+test('포털의 요청 파라미터 오류를 인증 오류와 구분하고 원문을 기록하지 않는다', async (t) => {
+  const { dir, store } = temp(t);
+  const [result] = await collect(store, {
+    env: { LH_SERVICE_KEY: 'test-lh-key' },
+    rawDir: dir,
+    fetchFn: async () => ({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        OpenAPI_ServiceResponse: {
+          cmmMsgHeader: { returnReasonCode: '10', returnAuthMsg: 'test-lh-key' },
+        },
+      }),
+    }),
+  }).then((results) => results.filter((item) => item.source === 'lh'));
+  assert.equal(result.code, 'invalid_request');
+  assert.match(result.message, /요청 파라미터/);
+  assert.ok(!JSON.stringify(store.runs()).includes('test-lh-key'));
+  assert.ok(
+    store
+      .coverage()
+      .filter((unit) => unit.sourceId === 'lh' && unit.unit !== 'myhome-sale')
+      .every((unit) => unit.errorCode === 'invalid_request'),
+  );
+});
