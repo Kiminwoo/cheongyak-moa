@@ -7,7 +7,15 @@ import { saveRaw } from './ingestion.js';
 import { inspectNotice, assertNoSecrets } from './data-quality.js';
 import { isActiveNotice, koreaToday } from '@cheongyak-moa/domain';
 
-export const PRICE_OPERATIONS: Record<string, { operation: string; amount: string }> = {
+export const PRICE_OPERATIONS: Record<
+  string,
+  { operation: string; amount: string; rental?: true }
+> = {
+  getPblPvtRentLttotPblancDetail: {
+    operation: 'getPblPvtRentLttotPblancMdl',
+    amount: 'SUPLY_AMOUNT',
+    rental: true,
+  },
   getOPTLttotPblancDetail: { operation: 'getOPTLttotPblancMdl', amount: 'LTTOT_TOP_AMOUNT' },
   getAPTLttotPblancDetail: { operation: 'getAPTLttotPblancMdl', amount: 'LTTOT_TOP_AMOUNT' },
   getRemndrLttotPblancDetail: { operation: 'getRemndrLttotPblancMdl', amount: 'LTTOT_TOP_AMOUNT' },
@@ -34,10 +42,29 @@ function nonnegative(value: unknown): number | null {
   if (!Number.isFinite(number) || number < 0) throw new Error('공급 금액 범위 오류');
   return number;
 }
-export function normalizePrices(notice: Notice, rows: unknown[]): SupplyPrice[] {
+function priceSpec(notice: Notice) {
   const spec = PRICE_OPERATIONS[notice.operation ?? ''];
-  if (!spec || notice.sourceId !== 'applyhome' || notice.type === 'rental')
-    throw new Error('지원하지 않는 가격 유형');
+  return notice.sourceId === 'applyhome' && spec && !!spec.rental === (notice.type === 'rental')
+    ? spec
+    : undefined;
+}
+function moneyWon(value: unknown): number | null {
+  const amount = nonnegative(value);
+  if (!amount) return null;
+  const won = Math.round(amount * 10000);
+  if (!Number.isSafeInteger(won) || won / 10000 !== amount)
+    throw new Error('공급 금액 정밀도 오류');
+  return won;
+}
+function homes(value: unknown): number | null {
+  const units = nonnegative(value);
+  if (units != null && !Number.isSafeInteger(units)) throw new Error('공급 세대수 형식 오류');
+  return units;
+}
+
+export function normalizePrices(notice: Notice, rows: unknown[]): SupplyPrice[] {
+  const spec = priceSpec(notice);
+  if (!spec) throw new Error('지원하지 않는 주택형 조회 유형');
   const [house, announcement] = notice.externalId.split(':');
   if (!/^\d+$/.test(house ?? '') || !/^\d+$/.test(announcement ?? ''))
     throw new Error('공고번호 형식 오류');
@@ -54,20 +81,25 @@ export function normalizePrices(notice: Notice, rows: unknown[]): SupplyPrice[] 
     const housingType =
       scalar(row.HOUSE_TY) || [scalar(row.GP), scalar(row.TP)].filter(Boolean).join(' · ');
     if (!model || !housingType) throw new Error('주택형 식별자 누락');
-    if (!Object.hasOwn(row, spec.amount)) throw new Error('공급 금액 항목 누락');
-    const amount = nonnegative(row[spec.amount]);
-    const maximumWon = amount == null || amount === 0 ? null : amount * 10000;
-    if (maximumWon != null && !Number.isSafeInteger(maximumWon))
-      throw new Error('공급 금액 정밀도 오류');
-    const units = nonnegative(row.SUPLY_HSHLDCO);
-    if (units != null && !Number.isInteger(units)) throw new Error('공급 세대수 형식 오류');
-    const item = {
+    if (!spec.rental && !Object.hasOwn(row, spec.amount)) throw new Error('공급 금액 항목 누락');
+    const item: SupplyPrice = {
       model,
       housingType,
       supplyArea: scalar(row.SUPLY_AR) || null,
-      units,
-      maximumWon,
+      units: homes(row.SUPLY_HSHLDCO),
+      maximumWon: moneyWon(row[spec.amount]),
     };
+    if (spec.rental) {
+      item.rental = {
+        exclusiveArea: scalar(row.EXCLUSE_AR) || null,
+        contractArea: scalar(row.CNTRCT_AR) || null,
+        generalUnits: homes(row.GNSPLY_HSHLDCO),
+        youthUnits: homes(row.SPSPLY_YGMN_HSHLDCO),
+        newlywedUnits: homes(row.SPSPLY_NEW_MRRG_HSHLDCO),
+        seniorUnits: homes(row.SPSPLY_AGED_HSHLDCO),
+        applicationFeeWon: moneyWon(row.SUBSCRPT_REQST_AMOUNT),
+      };
+    }
     const prior = models.get(model);
     if (prior && JSON.stringify(prior) !== JSON.stringify(item))
       throw new Error('주택형 중복 충돌');
@@ -76,14 +108,18 @@ export function normalizePrices(notice: Notice, rows: unknown[]): SupplyPrice[] 
   return [...models.values()].sort((a, b) => a.model.localeCompare(b.model));
 }
 export function applyPrices(notice: Notice, models: SupplyPrice[]): Notice {
+  const spec = priceSpec(notice);
+  if (!spec) throw new Error('지원하지 않는 주택형 조회 유형');
   const updated: Notice = {
     ...notice,
     pricing: {
-      operation: PRICE_OPERATIONS[notice.operation ?? ''].operation,
-      basis: 'model-maximum',
+      operation: spec.operation,
+      basis: spec.rental ? 'rental-model-supply' : 'model-maximum',
       models,
     },
-    priceBasis: '청약홈 주택형별 공급 최고금액 · 만원→원 환산 · 층별 실제가격·옵션 별도 확인',
+    priceBasis: spec.rental
+      ? '청약홈 주택형별 공급금액·청약신청금 · 만원→원 환산 · 보증금·월세는 공고 원문 확인'
+      : '청약홈 주택형별 공급 최고금액 · 만원→원 환산 · 층별 실제가격·옵션 별도 확인',
   };
   updated.quality = inspectNotice(updated);
   return updated;
@@ -107,14 +143,7 @@ export async function collectPrices(
   }
   const candidates = store
     .all()
-    .filter(
-      (notice) =>
-        !notice.isDemo &&
-        isActiveNotice(notice, today) &&
-        notice.sourceId === 'applyhome' &&
-        notice.type !== 'rental' &&
-        PRICE_OPERATIONS[notice.operation ?? ''],
-    );
+    .filter((notice) => !notice.isDemo && isActiveNotice(notice, today) && priceSpec(notice));
   const run = store.beginRun('applyhome', 'api');
   let updated = 0,
     empty = 0,
@@ -122,7 +151,7 @@ export async function collectPrices(
   let failureCode = '';
   for (const notice of candidates) {
     try {
-      const spec = PRICE_OPERATIONS[notice.operation ?? ''];
+      const spec = priceSpec(notice)!;
       const [house, announcement] = notice.externalId.split(':');
       if (!/^\d+$/.test(house ?? '') || !/^\d+$/.test(announcement ?? ''))
         throw new Error('공고번호 형식 오류');
@@ -176,7 +205,7 @@ export async function collectPrices(
       }
       if (!complete) throw new Error('가격 페이지 제한');
       const models = normalizePrices(notice, rows);
-      if (!models.length || !models.some((model) => model.maximumWon != null)) {
+      if (!models.length || (!spec.rental && !models.some((model) => model.maximumWon != null))) {
         empty++;
         continue;
       }
