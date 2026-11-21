@@ -34,6 +34,7 @@
     "precollect": "npm run build:api",
     "precollect:all": "npm run build:api",
     "collect:all": "node --experimental-sqlite --env-file-if-exists=.env apps/api/dist/cli/collect.mjs --boards --all-dates",
+    "collect:archive": "npm run collect:all -- --include-closed",
     "precollect:retry": "npm run build:api",
     "collect:retry": "node --experimental-sqlite --env-file-if-exists=.env apps/api/dist/cli/collect.mjs --boards --retry-failed",
     "precoverage": "npm run build:api",

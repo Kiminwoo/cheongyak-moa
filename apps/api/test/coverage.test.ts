@@ -195,3 +195,24 @@ test('페이지 한도에 도달하면 불완전한 목록을 반영하지 않�
   assert.equal(result[0].code, 'page_limit');
   assert.equal(store.all().length, 0);
 });
+
+test('보관 수집은 같은 청약홈 조회에서 새 마감 공고도 저장하며 활성 건수에는 제외한다', async (t) => {
+  const { store, options } = fixture(t);
+  const closed = { ...row, SUBSCRPT_RCEPT_BGNDE: '2026-11-01', SUBSCRPT_RCEPT_ENDDE: '2026-11-02' };
+  const collectOptions = {
+    ...options,
+    fetchFn: async (url) => ({
+      ok: true,
+      json: async () =>
+        url.pathname.endsWith('/getAPTLttotPblancDetail')
+          ? { data: [closed], matchCount: 1 }
+          : { data: [], matchCount: 0 },
+    }),
+  };
+  await collect(store, collectOptions);
+  assert.equal(store.all().length, 0);
+  const [result] = await collect(store, { ...collectOptions, includeClosed: true });
+  assert.equal(result.count, 0);
+  assert.equal(store.all().length, 1);
+  assert.equal(store.all()[0].deadline, '2026-11-02');
+});

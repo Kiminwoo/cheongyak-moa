@@ -128,6 +128,7 @@ test('다른 API 유형 실패가 정상 완료된 유형의 반영을 막지 �
   const result = await collect(store, {
     env: { APPLYHOME_SERVICE_KEY: 'mock' },
     rawDir: dir,
+    today: '2026-11-08',
     fetchFn: async () => {
       calls++;
       return calls === 1

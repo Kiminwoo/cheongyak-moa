@@ -14,7 +14,7 @@ test('갱신은 이번 실행의 모든 API 성공을 요구하고 과거 성공
   const store = new Store(':memory:', { seed: false });
   t.after(() => store.close());
   const start = new Date(Date.now() - 1000).toISOString();
-  assert.equal(refreshPolicy(store.coverage(), start, 0).blocked.length, 12);
+  assert.equal(refreshPolicy(store.coverage(), start, 0).blocked.length, 16);
   for (const spec of COVERAGE_UNITS.filter((unit) => unit.channel === 'api')) {
     store.beginUnit(spec);
     store.finishUnit(spec.sourceId, spec.unit, 'success', 0, 0);
@@ -23,6 +23,12 @@ test('갱신은 이번 실행의 모든 API 성공을 요구하고 과거 성공
   assert.equal(refreshPolicy(coverage, start, 0).snapshotAllowed, true);
   assert.equal(refreshPolicy(coverage, start, 0).nationwideComplete, false);
   assert.equal(refreshPolicy(coverage, start, 0).limited.length, 3);
+  const board = COVERAGE_UNITS.find((unit) => unit.sourceId === 'sh' && unit.channel === 'web')!;
+  store.beginUnit(board);
+  store.finishUnit('sh', board.unit, 'success', 10, 10, 'page_limit');
+  assert.ok(refreshPolicy(store.coverage(), start, 0).limited.includes('sh/official-board'));
+  store.finishUnit('sh', board.unit, 'success', 10, 10);
+  assert.ok(!refreshPolicy(store.coverage(), start, 0).limited.includes('sh/official-board'));
   assert.equal(
     refreshPolicy(coverage, new Date(Date.now() + 1000).toISOString(), 0).snapshotAllowed,
     false,

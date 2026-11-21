@@ -1,5 +1,6 @@
 import type { CoverageUnit } from '@cheongyak-moa/contracts';
 import { HOME_OPERATIONS } from './normalization.js';
+import { MYHOME_FEEDS } from './myhome.js';
 
 export type UnitSpec = Pick<
   CoverageUnit,
@@ -23,14 +24,16 @@ export const COVERAGE_UNITS: UnitSpec[] = [
     implemented: true,
     scope: '선택한 공고게시 조회 기간의 목록 · 상세 접수일·가격 별도 확인',
   })),
-  ...(['sh', 'gh', 'local'] as const).map((sourceId) => ({
-    sourceId,
-    unit: 'myhome-rental',
-    label: '마이홈 공공임대 기관별 분류',
-    channel: 'api' as const,
-    implemented: true,
-    scope: '마이홈 API 응답에 포함된 식별 가능한 기관만 · 자체 공고 전체 아님',
-  })),
+  ...MYHOME_FEEDS.flatMap((feed) =>
+    feed.sources.map((sourceId) => ({
+      sourceId,
+      unit: feed.unit,
+      label: `마이홈 ${feed.label} 기관별 분류`,
+      channel: 'api' as const,
+      implemented: true,
+      scope: '마이홈 API 응답에 포함된 식별 가능한 기관만 · 자체 공고 전체 아님',
+    })),
+  ),
   ...(['sh', 'gh'] as const).map((sourceId) => ({
     sourceId,
     unit: 'official-board',

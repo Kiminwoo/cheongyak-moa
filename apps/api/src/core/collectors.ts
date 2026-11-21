@@ -87,6 +87,7 @@ export async function collect(
     fetchFn = fetch,
     today = koreaToday(),
     onlyFailed = false,
+    includeClosed = false,
     allDates = false,
   }: {
     env?: Environment;
@@ -94,6 +95,7 @@ export async function collect(
     fetchFn?: FetchJSON;
     today?: string;
     onlyFailed?: boolean;
+    includeClosed?: boolean;
     allDates?: boolean;
   } = {},
 ): Promise<CollectionResult[]> {
@@ -107,6 +109,7 @@ export async function collect(
       (spec) =>
         spec.sourceId === source &&
         spec.channel === 'api' &&
+        !spec.unit.startsWith('myhome-') &&
         (!onlyFailed ||
           store
             .coverage()
@@ -241,7 +244,7 @@ export async function collect(
             throw new Error('수집 유형 간 공고번호 충돌');
         }
         const terminalUpdates = normalized.filter(
-          (notice) => !isActiveNotice(notice, today) && store.get(notice.id),
+          (notice) => !isActiveNotice(notice, today) && (includeClosed || store.get(notice.id)),
         );
         const unitChanges = store.transaction(() => {
           let count = 0;

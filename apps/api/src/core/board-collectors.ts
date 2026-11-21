@@ -32,6 +32,7 @@ export async function collectBoards(
     interval = 1000,
     today = koreaToday(),
     onlyFailed = false,
+    includeClosed = false,
   }: {
     env?: Environment;
     rawDir?: string;
@@ -39,6 +40,7 @@ export async function collectBoards(
     interval?: number;
     today?: string;
     onlyFailed?: boolean;
+    includeClosed?: boolean;
   } = {},
 ): Promise<CollectionResult[]> {
   const maxPages = Number(env.BOARD_MAX_PAGES || 5);
@@ -103,6 +105,7 @@ export async function collectBoards(
         const duplicate = existing.find(
           (item) =>
             item.sourceId === source &&
+            item.type === notice.type &&
             boardIdentity(item.sourceUrl, source) === boardIdentity(notice.sourceUrl, source),
         );
         if (duplicate) notice.id = duplicate.id;
@@ -113,7 +116,7 @@ export async function collectBoards(
       }
       const active = staged.filter((notice) => isActiveNotice(notice, today));
       const terminal = staged.filter(
-        (notice) => !isActiveNotice(notice, today) && store.get(notice.id),
+        (notice) => !isActiveNotice(notice, today) && (includeClosed || store.get(notice.id)),
       );
       let changes = 0;
       store.transaction(() => {
@@ -131,7 +134,14 @@ export async function collectBoards(
             }
         }
         const message = `공식 게시판 · ${active.length}건 · ${changes}건 신규·변경 · ${complete ? '현재 조회 목록 확인 완료' : `분류별 최근 ${maxPages}페이지 한정`} · 일정·금액 미확인은 원문 확인 필요`;
-        store.finishUnit(source, 'official-board', 'success', staged.length, active.length);
+        store.finishUnit(
+          source,
+          'official-board',
+          'success',
+          staged.length,
+          active.length,
+          complete ? null : 'page_limit',
+        );
         store.finishRun(
           run,
           'success',

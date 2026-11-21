@@ -106,7 +106,7 @@ export default function DataConnections({
         연동된 상태는 아닙니다.
       </p>
       <div className="detail-alert">
-        SH·GH·지방공사는{' '}
+        LH·SH·GH·지방공사의 일부 공고를{' '}
         <a
           href="https://www.data.go.kr/data/15108420/openapi.do"
           target="_blank"
@@ -114,7 +114,7 @@ export default function DataConnections({
         >
           마이홈 공공주택 모집공고 API
         </a>
-        에 포함된 공공임대 자료를 공급기관명으로 분류합니다. 기관 홈페이지 자체 공고 전체가
+        의 공공임대·공공분양 목록에서 공급기관명으로 분류합니다. 기관 홈페이지 자체 공고 전체가
         아닙니다. 별도 활용 승인이 필요하며 MYHOME_SERVICE_KEY가 비어 있으면 기존 LH 키를
         사용합니다. 응답이 정상이어도 해당 기관 공고가 없으면 0건으로 표시합니다.
       </div>
@@ -174,7 +174,11 @@ export default function DataConnections({
                           failed: '실패 · 기존 자료 유지',
                         }[unit.status]
                       }
-                      <small>{unit.errorCode || ''}</small>
+                      <small>
+                        {unit.errorCode === 'page_limit'
+                          ? '페이지 한도 도달'
+                          : unit.errorCode || ''}
+                      </small>
                     </td>
                     <td>
                       {unit.from && unit.to ? `${unit.from}~${unit.to}` : 'API·게시판 제공 범위'}
