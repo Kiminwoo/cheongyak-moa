@@ -2,6 +2,7 @@ import { errorMessage } from '@cheongyak-moa/contracts';
 import type {
   BootstrapData,
   AccountRole,
+  CloudRefreshJob,
   View,
   FilterChange,
   RequestFn,
@@ -65,20 +66,79 @@ function useInstallation() {
   return { installed, install };
 }
 
+const cloudRefreshLabels = {
+  pending: '클라우드 작업 대기 중',
+  running: '클라우드에서 전체 데이터를 수집하고 있습니다.',
+  succeeded: '공개 사본 발행 완료 · Vercel 배포 후 운영에 반영됩니다.',
+  failed: '클라우드 갱신 실패 · 수집 서비스의 실행 기록을 확인해 주세요.',
+  canceled: '클라우드 갱신이 취소되었습니다.',
+};
+
 function ProductionAdminSummary({ requestFn }: { requestFn: RequestFn }) {
-  const [summary, setSummary] = useState<{ snapshotAt?: string; accountsExpireAt: number }>();
+  const [summary, setSummary] = useState<{
+    snapshotAt?: string;
+    accountsExpireAt: number;
+    cloudRefreshEnabled: boolean;
+  }>();
+  const [job, setJob] = useState<CloudRefreshJob | null>(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const running = job?.status === 'pending' || job?.status === 'running';
+
   useEffect(() => {
     const controller = new AbortController();
-    requestFn<{ snapshotAt?: string; accountsExpireAt: number }>('/api/admin/summary', {
-      signal: controller.signal,
-    })
-      .then(setSummary)
+    requestFn<NonNullable<typeof summary>>('/api/admin/summary', { signal: controller.signal })
+      .then((data) => {
+        if (!controller.signal.aborted) setSummary(data);
+      })
       .catch(() => {
         if (!controller.signal.aborted) setError('운영 데이터 현황을 불러오지 못했습니다.');
       });
     return () => controller.abort();
   }, [requestFn]);
+  useEffect(() => {
+    if (!summary?.cloudRefreshEnabled) return;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    async function check() {
+      try {
+        const result = await requestFn<{ job: CloudRefreshJob | null }>('/api/admin/refresh', {
+          signal: controller.signal,
+        });
+        if (!controller.signal.aborted) {
+          setJob(result.job);
+          if (result.job?.status === 'pending' || result.job?.status === 'running')
+            timer = setTimeout(check, 7000);
+        }
+      } catch (cause) {
+        if (!controller.signal.aborted) {
+          setError(errorMessage(cause));
+          if (running) timer = setTimeout(check, 7000);
+        }
+      }
+    }
+    if (!busy) void check();
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [requestFn, summary?.cloudRefreshEnabled, busy, running]);
+
+  async function start() {
+    setBusy(true);
+    setError('');
+    try {
+      const result = await requestFn<{ job: CloudRefreshJob }>('/api/admin/refresh', {
+        method: 'POST',
+        body: {},
+      });
+      setJob(result.job);
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <div className="detail-alert">
       <h3>운영 데이터 현황</h3>
@@ -89,24 +149,20 @@ function ProductionAdminSummary({ requestFn }: { requestFn: RequestFn }) {
           {' · '}임시 계정 만료 {new Date(summary.accountsExpireAt).toLocaleDateString('ko-KR')}
         </p>
       )}
-      {error && <p role="alert">{error}</p>}
       <div className="source-actions">
-        <a
-          className="primary admin-refresh-link"
-          href="http://127.0.0.1:4310/?view=sources"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-describedby="admin-refresh-help"
+        <button
+          className="primary admin-refresh-button"
+          onClick={start}
+          disabled={!summary?.cloudRefreshEnabled || busy || running}
         >
-          전체 데이터 갱신
-        </a>
+          {busy || running ? '클라우드 갱신 중…' : '전체 데이터 갱신'}
+        </button>
       </div>
-      <p className="helper" id="admin-refresh-help">
-        PC에서 청약모아를 실행한 뒤 누르면 관리자 앱의 데이터 연결 현황이 열립니다. 그 화면에서
-        갱신을 시작할 수 있습니다.
-      </p>
-      <a href="https://github.com/Kiminwoo/cheongyak-moa/blob/main/VERCEL_PREVIEW.md#공고-갱신">
-        운영 반영 설정
+      {job && <p role="status">{cloudRefreshLabels[job.status]}</p>}
+      {summary && !summary.cloudRefreshEnabled && <p>클라우드 수집 서비스 연결이 필요합니다.</p>}
+      {error && <p role="alert">{error}</p>}
+      <a href="https://github.com/Kiminwoo/cheongyak-moa/blob/main/VERCEL_PREVIEW.md#클라우드-공고-갱신">
+        클라우드 갱신 설정
       </a>
     </div>
   );
@@ -122,12 +178,7 @@ export default function App({
   const [data, setData] = useState<BootstrapData | null>(null),
     [error, setError] = useState(''),
     [loading, setLoading] = useState(true);
-  const [view, setView] = useState<View>(() =>
-      account?.role === 'admin' &&
-      new URLSearchParams(window.location.search).get('view') === 'sources'
-        ? 'sources'
-        : 'matching',
-    ),
+  const [view, setView] = useState<View>('matching'),
     [filters, setFilters] = useState(defaultFilters),
     [month, setMonth] = useState<string | null>(null);
   const [modal, setModal] = useState<

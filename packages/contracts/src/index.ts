@@ -205,6 +205,11 @@ export interface QualitySummary {
   missingSchedule: number;
   missingPrice: number;
 }
+export interface CloudRefreshJob {
+  id: string;
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'canceled';
+  createdAt: string;
+}
 export interface DataRefreshStatus {
   state: 'running' | 'success' | 'partial' | 'failed';
   message: string;

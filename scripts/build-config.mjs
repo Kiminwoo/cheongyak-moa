@@ -101,6 +101,7 @@ export function apiOptions() {
           'build-vercel',
           'snapshot-preview',
           'refresh-data',
+          'publish-cloud-refresh',
         ].map((name) => ['cli/' + name, join(root, `apps/api/src/cli/${name}.ts`)]),
       ),
     },
