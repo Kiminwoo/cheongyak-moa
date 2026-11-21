@@ -109,3 +109,16 @@ test('마감 당일은 접수 중으로 남기고 취소를 우선한다', () =>
   assert.equal(stage({ ...demo, starts: null }, today), 'unknown');
   assert.equal(stage({ ...demo, cancelled: true }, today), 'cancelled');
 });
+
+test('LH 원본에서 접수마감인 공고는 마감으로 표시하고 게시 종료일은 접수일로 쓰지 않는다', () => {
+  const notice = {
+    ...demo,
+    sourceId: 'lh',
+    cancelled: false,
+    starts: null,
+    deadline: null,
+    publicationEnd: '2026-11-01',
+  } as const;
+  assert.equal(stage({ ...notice, sourceStatus: '접수마감' }, today), 'closed');
+  assert.equal(stage({ ...notice, sourceStatus: '공고중' }, today), 'unknown');
+});

@@ -7,28 +7,31 @@ import { collectBoards } from '../core/board-collectors.js';
 const onlyFailed = process.argv.includes('--retry-failed');
 const withBoards = process.argv.includes('--boards');
 const allDates = process.argv.includes('--all-dates');
-if (
-  process.argv.slice(2).some((arg) => !['--retry-failed', '--boards', '--all-dates'].includes(arg))
-)
-  throw new Error('지원 옵션: --retry-failed, --boards, --all-dates');
-import { fileURLToPath } from 'node:url';
+const includeClosed = process.argv.includes('--include-closed');
+const supported = ['--retry-failed', '--boards', '--all-dates', '--include-closed'];
+if (process.argv.slice(2).some((arg) => !supported.includes(arg)))
+  throw new Error('지원 옵션: ' + supported.join(', '));
 const root = findProjectRoot(import.meta.url);
 const paths = dataPaths(root);
 const store = new Store(paths.database);
 try {
   if (allDates)
     console.log(
-      '청약홈 5개 유형은 모집공고일 제한 없이 조회합니다. 마감·취소 신규 공고는 저장하지 않으며 LH는 설정된 조회 기간을 사용합니다.',
+      '청약홈 5개 유형은 모집공고일 제한 없이 조회합니다. LH는 설정된 조회 기간을 사용합니다.',
     );
-  const results = await collect(store, { rawDir: paths.raw, onlyFailed, allDates });
+  if (includeClosed) console.log('조회된 마감·취소 공고도 로컬 DB에 보관합니다.');
+  const options = { rawDir: paths.raw, onlyFailed, includeClosed };
+  const results = await collect(store, { ...options, allDates });
   for (const r of results) console.log(`${r.source}: ${r.status} · ${r.count}건 · ${r.message}`);
-  if (results.some((r) => r.status === 'failed')) process.exitCode = 1;
-  for (const result of await collectLocal(store, { rawDir: paths.raw, onlyFailed })) {
+  if (results.some((r) => r.status === 'failed' || (includeClosed && r.status === 'unconfigured')))
+    process.exitCode = 1;
+  for (const result of await collectLocal(store, options)) {
     console.log(`${result.source}: ${result.status} · ${result.count}건 · ${result.message}`);
-    if (result.status === 'failed') process.exitCode = 1;
+    if (result.status === 'failed' || (includeClosed && result.status === 'unconfigured'))
+      process.exitCode = 1;
   }
   if (withBoards)
-    for (const result of await collectBoards(store, { rawDir: paths.raw, onlyFailed })) {
+    for (const result of await collectBoards(store, options)) {
       console.log(
         `${result.source}/board: ${result.status} · ${result.count}건 · ${result.code ?? ''} · ${result.message}`,
       );

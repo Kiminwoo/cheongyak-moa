@@ -2,8 +2,27 @@ import { isRecord } from '@cheongyak-moa/contracts';
 import type { ApiSource, Notice } from '@cheongyak-moa/contracts';
 import { dateOnly, regionName } from '@cheongyak-moa/domain';
 
-export const MYHOME_URL = 'https://apis.data.go.kr/1613000/HWSPR02/rsdtRcritNtcList';
-export const LOCAL_SOURCES = ['sh', 'gh', 'local'] as const;
+export const MYHOME_BASE = 'https://apis.data.go.kr/1613000/HWSPR02/';
+const LOCAL_SOURCES = ['sh', 'gh', 'local'] as const;
+export const MYHOME_FEEDS = [
+  {
+    unit: 'myhome-rental',
+    type: 'rental',
+    operation: 'rsdtRcritNtcList',
+    label: '공공임대',
+    sources: LOCAL_SOURCES,
+    detail: 'selectRsdtRcritNtcDetailView',
+  },
+  {
+    unit: 'myhome-sale',
+    type: 'sale',
+    operation: 'ltRsdtRcritNtcList',
+    label: '공공분양',
+    sources: ['lh', ...LOCAL_SOURCES],
+    detail: 'selectLttotHouseDetailView',
+  },
+] as const;
+type MyhomeFeed = (typeof MYHOME_FEEDS)[number];
 export function myhomePage(payload: unknown): { rows: Record<string, unknown>[]; total: number } {
   if (!isRecord(payload)) throw new Error('마이홈 응답 객체가 없습니다.');
   const envelope = isRecord(payload.response) ? payload.response : payload;
@@ -50,9 +69,16 @@ function date(value: unknown): string | null {
 }
 export function issuerGroup(value: string): ApiSource | null {
   const name = value.replace(/[\s()㈜]/g, '');
-  if (/한국토지주택공사|^LH$/i.test(name)) return 'lh';
+  if (/한국토지주택공사|^LH(?:공사)?$/i.test(name)) return 'lh';
   if (/서울주택도시(?:개발)?공사|^SH(?:공사)?$/i.test(name)) return 'sh';
   if (/경기주택도시공사|경기도시공사|^GH(?:공사)?$/i.test(name)) return 'gh';
+  if (
+    /^(iH|BMC)$/i.test(name) ||
+    /^(서울특별시|부산광역시|대구광역시|인천광역시|광주광역시|대전광역시|울산광역시|세종특별자치시|경기도|강원특별자치도|충청북도|충청남도|전북특별자치도|전라남도|경상북도|경상남도|제주특별자치도)$/.test(
+      name,
+    )
+  )
+    return 'local';
   // 알 수 없는 민간 사업자나 빈 이름을 지방공사로 임의 분류하지 않습니다.
   if (/(?:도시|개발|주택)공사|(?:특별|광역)?(?:자치)?시청$|군청$|구청$|도청$/.test(name))
     return 'local';
@@ -67,6 +93,7 @@ function officialLink(value: unknown, group: ApiSource): string | null {
     const trusted =
       host === 'myhome.go.kr' ||
       host.endsWith('.myhome.go.kr') ||
+      (group === 'lh' && (host === 'lh.or.kr' || host.endsWith('.lh.or.kr'))) ||
       (group === 'sh' && (host === 'i-sh.co.kr' || host.endsWith('.i-sh.co.kr'))) ||
       (group === 'gh' && (host === 'gh.or.kr' || host.endsWith('.gh.or.kr'))) ||
       (group === 'local' && host.endsWith('.go.kr'));
@@ -78,20 +105,29 @@ function officialLink(value: unknown, group: ApiSource): string | null {
   }
 }
 
-export function normalizeMyhome(rows: Record<string, unknown>[]): {
+export function normalizeMyhome(
+  rows: Record<string, unknown>[],
+  feed: MyhomeFeed = MYHOME_FEEDS[0],
+): {
   notices: Notice[];
   ignored: number;
 } {
   const grouped = new Map<
     string,
-    { notice: Notice; regions: Set<string>; addresses: Set<string>; dates: Set<string> }
+    {
+      notice: Notice;
+      regions: Set<string>;
+      addresses: Set<string>;
+      dates: Set<string>;
+      statuses: Set<string>;
+    }
   >();
   let ignored = 0;
   for (const row of rows) {
     const issuer = text(row.suplyInsttNm);
     if (!issuer) throw new Error('마이홈 공급기관명 누락');
     const group = issuerGroup(issuer);
-    if (!group || group === 'lh') {
+    if (!group || !feed.sources.some((source) => source === group)) {
       ignored++;
       continue;
     }
@@ -107,8 +143,13 @@ export function normalizeMyhome(rows: Record<string, unknown>[]): {
     const sourceUrl =
       officialLink(row.url, group) ||
       officialLink(row.pcUrl, group) ||
-      `https://www.myhome.go.kr/hws/portal/sch/selectRsdtRcritNtcDetailView.do?pblancId=${encodeURIComponent(externalId)}`;
-    const id = `myhome:${group}:${externalId}`;
+      `https://www.myhome.go.kr/hws/portal/sch/${feed.detail}.do?pblancId=${encodeURIComponent(externalId)}`;
+    // 임대의 기존 키를 유지하고 API별 공고 ID가 겹쳐도 별개로 저장합니다.
+    const id =
+      feed.type === 'rental'
+        ? `myhome:${group}:${externalId}`
+        : `myhome:sale:${group}:${externalId}`;
+    const sourceStatus = text(row.sttusNm);
     const notice: Notice = {
       id,
       externalId,
@@ -120,8 +161,8 @@ export function normalizeMyhome(rows: Record<string, unknown>[]): {
       region,
       city: text(row.signguNm),
       address,
-      type: 'rental',
-      subtype: text(row.suplyTyNm) || '공공임대',
+      type: feed.type,
+      subtype: text(feed.type === 'rental' ? row.suplyTyNm : row.houseTyNm) || feed.label,
       isDemo: false,
       rulesComplete: false,
       rules: [],
@@ -131,16 +172,15 @@ export function normalizeMyhome(rows: Record<string, unknown>[]): {
       area: null,
       areaBasis: null,
       priceBasis: '마이홈 목록 금액은 주택형·단위 대조 전 미확인',
-      description:
-        '마이홈 공공임대 API에서 수집한 공고입니다. 공급기관 자체 공고 전체를 의미하지 않습니다. 접수유형별 일정·금액·자격은 원문을 확인해 주세요.',
+      description: `마이홈 ${feed.label} API에서 수집한 공고입니다. 접수유형별 일정·금액·자격은 원문을 확인해 주세요.`,
       announced: date(row.rcritPblancDe),
       starts,
       deadline,
       winnerDate: date(row.przwnerPresnatnDe),
       units: null,
       sourceUrl,
-      cancelled: /취소/.test(text(row.sttusNm)),
-      sourceStatus: text(row.sttusNm),
+      cancelled: /취소/.test(sourceStatus),
+      sourceStatus,
       schedules:
         starts || deadline
           ? [{ label: '마이홈 제공 모집 기간', start: starts, end: deadline }]
@@ -159,17 +199,19 @@ export function normalizeMyhome(rows: Record<string, unknown>[]): {
       if (address) previous.addresses.add(address);
       previous.dates.add(JSON.stringify([starts, deadline]));
       previous.notice.cancelled ||= notice.cancelled;
+      previous.statuses.add(sourceStatus);
     } else
       grouped.set(id, {
         notice,
         regions: new Set([region]),
         addresses: new Set(address ? [address] : []),
         dates: new Set([JSON.stringify([starts, deadline])]),
+        statuses: new Set([sourceStatus]),
       });
   }
   return {
     ignored,
-    notices: [...grouped.values()].map(({ notice, regions, addresses, dates }) => {
+    notices: [...grouped.values()].map(({ notice, regions, addresses, dates, statuses }) => {
       const periods = [...dates].map(
         (value) => JSON.parse(value) as [string | null, string | null],
       );
@@ -179,6 +221,7 @@ export function normalizeMyhome(rows: Record<string, unknown>[]): {
         : null;
       return {
         ...notice,
+        sourceStatus: statuses.size === 1 ? notice.sourceStatus : null,
         region: regions.size > 1 ? '전국' : notice.region,
         city: addresses.size > 1 ? '' : notice.city,
         address: addresses.size > 1 ? '복수 공급지역 · 공고 원문 확인' : notice.address,

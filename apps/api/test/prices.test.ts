@@ -165,6 +165,27 @@ test('가격 다중 페이지의 마지막 실패나 빈 응답으로 기존 가
   }
 });
 
+test('공고별 가격은 서비스 전체 건수를 필터 결과의 건수로 사용하지 않는다', async () => {
+  const store = new Store(':memory:', { seed: false });
+  const rawDir = mkdtempSync(join(tmpdir(), 'moa-price-total-'));
+  try {
+    store.upsert(notice);
+    const result = await collectPrices(store, {
+      env: { APPLYHOME_SERVICE_KEY: 'fake-key' },
+      rawDir,
+      fetchFn: async () => ({
+        ok: true,
+        json: async () => ({ data: [model], currentCount: 1, totalCount: 10000 }),
+      }),
+    });
+    assert.equal(result.updated, 1);
+    assert.equal(result.failed, 0);
+  } finally {
+    store.close();
+    rmSync(rawDir, { recursive: true, force: true });
+  }
+});
+
 test('공공지원 민간임대의 주택형 상세는 공급금액과 신청금을 구분하고 임대료를 추정하지 않는다', async (t) => {
   const store = new Store(':memory:', { seed: false });
   const rawDir = mkdtempSync(join(tmpdir(), 'moa-rental-models-'));

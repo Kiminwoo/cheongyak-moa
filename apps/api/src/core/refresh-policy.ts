@@ -18,7 +18,7 @@ export function refreshPolicy(units: CoverageUnit[], startedAt: string, priceFai
   const limited = COVERAGE_UNITS.filter((unit) => unit.channel === 'web')
     .filter((spec) => {
       const unit = units.find((item) => item.sourceId === spec.sourceId && item.unit === spec.unit);
-      return !spec.implemented || !unit || !fresh(unit);
+      return !spec.implemented || !unit || !fresh(unit) || unit.errorCode === 'page_limit';
     })
     .map((unit) => `${unit.sourceId}/${unit.unit}`);
   return {

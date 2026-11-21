@@ -172,25 +172,33 @@ export async function collectPrices(
         const payload = await getJSON(url, fetchFn);
         if (!isRecord(payload) || !Array.isArray(payload.data))
           throw new Error('가격 응답 배열 누락');
+        if (
+          payload.data.length > 100 ||
+          (payload.currentCount != null && Number(payload.currentCount) !== payload.data.length)
+        )
+          throw new Error('가격 페이지 건수 불일치');
         const fingerprint = JSON.stringify(payload.data);
         if (payload.data.length && seen.has(fingerprint)) throw new Error('가격 페이지 반복');
         seen.add(fingerprint);
         normalizePrices(notice, payload.data);
         saveRaw(rawDir, 'applyhome-prices', run, `${house}-${announcement}-${page}`, payload);
         rows.push(...payload.data);
-        const total = Number(payload.matchCount ?? payload.totalCount);
-        if (Number.isFinite(total)) {
+        // totalCount can include rows outside the requested notice.
+        if (payload.matchCount != null) {
+          const total = Number(payload.matchCount);
           if (
-            !Number.isInteger(total) ||
-            total < rows.length ||
+            !Number.isSafeInteger(total) ||
+            total < 0 ||
             (expectedTotal != null && expectedTotal !== total)
           )
             throw new Error('가격 전체 건수 불일치');
           expectedTotal = total;
-          if (payload.data.length < 100 && rows.length !== total)
-            throw new Error('가격 응답 일부 누락');
         }
-        if (payload.data.length < 100 || (Number.isFinite(total) && page * 100 >= total)) {
+        if (expectedTotal != null && rows.length > expectedTotal)
+          throw new Error('가격 전체 건수 초과');
+        if (payload.data.length < 100 || rows.length === expectedTotal) {
+          if (expectedTotal != null && rows.length !== expectedTotal)
+            throw new Error('가격 응답 일부 누락');
           complete = true;
           break;
         }

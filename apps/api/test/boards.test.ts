@@ -37,6 +37,11 @@ test('첨부 전용 일정은 미확인으로 두고 게시일을 자격 기준�
   );
   assert.equal(scheduled.starts, '2026-11-09');
   assert.equal(scheduled.deadline, '2026-11-20');
+  const attachment =
+    '<tr><td><a href="/main/com/util/htmlConverter.do?seq=100&amp;file_seq=1">미리보기</a></td></tr>';
+  const shortDetail = detail('첨부 참고').replace('</table>', attachment + '</table>');
+  assert.equal(parseBoardDetail(shortDetail, 'sh', entry).deadline, null);
+  assert.throws(() => parseBoardDetail(shortDetail.replace('seq=100', 'seq=200'), 'sh', entry));
   assert.throws(() => parseBoardDetail('<html>대기열 안내</html>', 'sh', entry));
 });
 
@@ -181,4 +186,51 @@ test('SH 실제 목록 구조의 식별자·게시일을 읽고 발표·비주�
   assert.equal(recruitmentTitle('단지 내 상가 임차인 모집공고'), false);
   assert.equal(recruitmentTitle('주택 매입공고'), false);
   assert.throws(() => parseBoardList('<html>로그인 필요</html>', 'sh'));
+});
+
+test('SH 보관 수집은 완료 목록을 별도로 조회하고 일정이 없는 완료 공고도 마감 상태로 저장한다', async (t) => {
+  const rawDir = mkdtempSync(join(tmpdir(), 'boards-archive-'));
+  const store = new Store(':memory:', { seed: false });
+  t.after(() => {
+    store.close();
+    rmSync(rawDir, { recursive: true, force: true });
+  });
+  const list = (state: string, hasEntry: boolean, rental = true) =>
+    `<input name="isRecrnoti" value="Y">
+      ${rental ? `<input name="recrnotiState" value="${state}" checked>` : ''}
+      <table><thead><tr><th>번호</th><th>제목</th><th>등록일</th></tr></thead>
+      <tbody>${
+        hasEntry
+          ? `<tr><td>1</td><td><a onclick="getDetailView(100)">${entry.title}</a></td><td>2026-11-01</td></tr>`
+          : '<tr><td>검색된 결과가 없습니다</td></tr>'
+      }</tbody></table>`;
+  const calls: string[] = [];
+  const [sh] = await collectBoards(store, {
+    rawDir,
+    env: {},
+    interval: 0,
+    today: '2026-11-08',
+    includeClosed: true,
+    fetchFn: async (url) => {
+      if (url.pathname === '/robots.txt')
+        return new Response(url.hostname.includes('gh.or.kr') ? 'User-agent: *\nDisallow: /' : '');
+      const state = url.searchParams.get('recrnotiState') ?? '';
+      const category = url.searchParams.get('multi_itm_seq');
+      const body = url.pathname.endsWith('/view.do')
+        ? detail('모집 내용과 신청 조건은 첨부 문서를 확인해 주세요.')
+        : list(state, state === 'suc' && category === '2', category === '2');
+      if (state) {
+        assert.equal(url.searchParams.get('isRecrnoti'), 'Y');
+        calls.push(`${category}:${state}`);
+      }
+      return new Response(body, { headers: { 'content-type': 'text/html' } });
+    },
+  });
+  assert.deepEqual(calls, ['2:suc', '1:suc', '2:now', '1:now']);
+  assert.equal(sh.status, 'success');
+  assert.equal(sh.count, 0);
+  const notice = store.get('sh:board:100');
+  assert.equal(notice.deadline, null);
+  assert.equal(notice.sourceStatus, '접수마감');
+  assert.throws(() => parseBoardList(list('now', true), 'sh', 'rental', 'suc'));
 });

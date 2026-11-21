@@ -20,6 +20,7 @@ function keyValue(value: string): string {
 const failureMessages: Record<string, string> = {
   network_denied: '실행 환경에서 공식 API 접속이 차단되었습니다. 네트워크 권한을 확인해 주세요.',
   authentication: '공식 API 인증·활용 승인 상태를 확인해 주세요.',
+  invalid_request: '공식 API가 요청 파라미터를 거부했습니다. 서비스의 요청 명세를 확인해 주세요.',
   invalid_response: '공식 API 응답 형식 또는 날짜·페이지 구성을 확인해 주세요.',
   timeout: '공식 API 응답 지연 또는 연결 실패입니다. 잠시 후 다시 시도해 주세요.',
   page_limit: '페이지 한도에 도달했습니다. 기간을 나누거나 COLLECT_MAX_PAGES 설정을 확인해 주세요.',
@@ -32,22 +33,40 @@ export async function getJSON(url: URL, fetchFn: FetchJSON = fetch): Promise<unk
         signal: AbortSignal.timeout(20000),
         headers: { accept: 'application/json' },
       });
-      if (!response.ok) {
-        if ((response.status ?? 0) < 500 && response.status !== 429)
-          throw Object.assign(
-            new Error('공식 API 인증·승인 상태 또는 요청 명세를 확인해 주세요.'),
-            { stop: true, publicCode: 'authentication' },
-          );
-        throw new Error('upstream');
-      }
+      const status = response.status ?? 0;
+      if (!response.ok && (status >= 500 || status === 429)) throw new Error('upstream');
+
+      let payload: unknown;
       try {
-        return await response.json();
+        payload = await response.json();
       } catch {
-        throw Object.assign(new Error('공식 API가 JSON을 반환하지 않았습니다.'), {
-          stop: true,
-          publicCode: 'invalid_response',
-        });
+        if (response.ok)
+          throw Object.assign(new Error(failureMessages.invalid_response), {
+            stop: true,
+            publicCode: 'invalid_response',
+          });
       }
+      const envelope =
+        isRecord(payload) && isRecord(payload.OpenAPI_ServiceResponse)
+          ? payload.OpenAPI_ServiceResponse
+          : payload;
+      const header =
+        isRecord(envelope) && isRecord(envelope.cmmMsgHeader) ? envelope.cmmMsgHeader : null;
+      const resultCode = String(header?.returnReasonCode ?? '');
+      const publicCode =
+        ['20', '21', '22', '30', '31', '32'].includes(resultCode) ||
+        status === 401 ||
+        status === 403
+          ? 'authentication'
+          : resultCode === '10' || status === 400
+            ? 'invalid_request'
+            : !response.ok || header
+              ? 'invalid_response'
+              : null;
+      if (publicCode) {
+        throw Object.assign(new Error(failureMessages[publicCode]), { stop: true, publicCode });
+      }
+      return payload;
     } catch (error) {
       if (isRecord(error) && error.stop) throw error;
       if (attempt === 2)
@@ -87,6 +106,7 @@ export async function collect(
     fetchFn = fetch,
     today = koreaToday(),
     onlyFailed = false,
+    includeClosed = false,
     allDates = false,
   }: {
     env?: Environment;
@@ -94,6 +114,7 @@ export async function collect(
     fetchFn?: FetchJSON;
     today?: string;
     onlyFailed?: boolean;
+    includeClosed?: boolean;
     allDates?: boolean;
   } = {},
 ): Promise<CollectionResult[]> {
@@ -107,6 +128,7 @@ export async function collect(
       (spec) =>
         spec.sourceId === source &&
         spec.channel === 'api' &&
+        !spec.unit.startsWith('myhome-') &&
         (!onlyFailed ||
           store
             .coverage()
@@ -241,7 +263,7 @@ export async function collect(
             throw new Error('수집 유형 간 공고번호 충돌');
         }
         const terminalUpdates = normalized.filter(
-          (notice) => !isActiveNotice(notice, today) && store.get(notice.id),
+          (notice) => !isActiveNotice(notice, today) && (includeClosed || store.get(notice.id)),
         );
         const unitChanges = store.transaction(() => {
           let count = 0;

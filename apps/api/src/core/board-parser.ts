@@ -34,17 +34,20 @@ export interface BoardEntry {
   url: string;
   posted: string;
 }
+type SHRecruitmentState = 'now' | 'suc';
+
 export function boardListURL(
   source: BoardSource,
   page = 1,
   type: 'rental' | 'sale' = 'rental',
+  state: SHRecruitmentState = 'now',
 ): string {
   const url = new URL(BOARD_SITES[source]);
   if (source === 'sh') {
     url.searchParams.set('multi_itm_seq', type === 'rental' ? '2' : '1');
-    url.searchParams.set('recrnotiState', 'now');
+    url.searchParams.set('recrnotiState', state);
+    url.searchParams.set('isRecrnoti', 'Y');
     url.searchParams.set('srchTp', '0');
-    url.searchParams.set('srchWord', '모집');
     url.searchParams.set('page', String(page));
   } else {
     url.searchParams.set('article.offset', String((page - 1) * 10));
@@ -56,6 +59,7 @@ export function parseBoardList(
   html: string,
   source: BoardSource,
   type: 'rental' | 'sale' = 'rental',
+  state?: SHRecruitmentState,
 ): { entries: BoardEntry[]; rowCount: number } {
   const window = documentFrom(html);
   try {
@@ -64,6 +68,16 @@ export function parseBoardList(
       ?.getAttribute('value');
     if (source === 'sh' && category && category !== (type === 'rental' ? '2' : '1'))
       throw boardError('parser_changed', '요청한 주택 분류와 게시판 응답이 다릅니다.');
+    if (source === 'sh' && state) {
+      const filter = window.document.querySelector('input[name="isRecrnoti"]');
+      const selected = window.document.querySelector('input[name="recrnotiState"][checked]');
+      if (
+        (state === 'suc' || filter || selected) &&
+        (filter?.getAttribute('value') !== 'Y' ||
+          ((type === 'rental' || selected) && selected?.getAttribute('value') !== state))
+      )
+        throw boardError('parser_changed', '요청한 모집 상태와 게시판 응답이 다릅니다.');
+    }
     const tables = [...window.document.querySelectorAll('table')];
     const table = tables.find((item) => {
       const headers = [...item.querySelectorAll('th')].map((node) => clean(node.textContent));
@@ -145,8 +159,25 @@ export function parseBoardDetail(html: string, source: BoardSource, entry: Board
         '목록 제목과 일치하는 상세 본문을 확인하지 못했습니다. 대기열·접근 제한 여부를 확인해 주세요.',
       );
     const content = table.querySelector('td.cont');
-    if (!content || clean(content.textContent).length < 20)
-      throw boardError('parser_changed', '상세 공고 본문 구조를 확인하지 못했습니다.');
+    if (!content) throw boardError('parser_changed', '상세 공고 본문 구조를 확인하지 못했습니다.');
+    if (clean(content.textContent).length < 20) {
+      const hasAttachment =
+        source === 'sh' &&
+        [...table.querySelectorAll('a[href*="htmlConverter.do"]')].some((link) => {
+          const url = URL.parse(link.getAttribute('href') ?? '', entry.url);
+          return (
+            !!url &&
+            url.origin === new URL(entry.url).origin &&
+            !url.username &&
+            !url.password &&
+            url.pathname === '/main/com/util/htmlConverter.do' &&
+            url.searchParams.get('seq') === entry.id &&
+            /^\d+$/.test(url.searchParams.get('file_seq') ?? '')
+          );
+        });
+      if (!hasAttachment)
+        throw boardError('parser_changed', '상세 공고 본문 구조를 확인하지 못했습니다.');
+    }
     const schedules: Schedule[] = [];
     let address = '';
     for (const row of content.querySelectorAll('tr')) {
