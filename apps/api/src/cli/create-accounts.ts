@@ -4,7 +4,8 @@ import { projectRoot } from '../paths.js';
 import { generateTemporaryAccount, roles } from '../core/accounts.js';
 
 const root = projectRoot(import.meta.url);
-const expiresAt = Date.now() + 14 * 86400000;
+const issuedAt = new Date();
+const expiresAt = issuedAt.setUTCFullYear(issuedAt.getUTCFullYear() + 1);
 const generated = roles.map((role) => generateTemporaryAccount(role, role, expiresAt));
 const folder = join(root, 'data');
 mkdirSync(folder, { recursive: true, mode: 0o700 });
