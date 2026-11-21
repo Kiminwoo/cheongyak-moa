@@ -22,7 +22,7 @@ export function collectionConfig(
       lh: configured(env.LH_SERVICE_KEY),
       sh: !!myhomeKey(env),
       gh: !!myhomeKey(env),
-      local: !!myhomeKey(env),
+      local: !!myhomeKey(env) || configured(env.IH_SERVICE_KEY),
     },
   };
 }
