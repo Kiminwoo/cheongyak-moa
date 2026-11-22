@@ -98,7 +98,7 @@ export function Header({
         <div className="header-actions">
           {account && (
             <button className="local-chip account-logout" onClick={account.logout}>
-              {account.role === 'admin' ? '관리자' : '고객'} · 로그아웃
+              <span>{account.role === 'admin' ? '관리자' : '고객'} ·</span> 로그아웃
             </button>
           )}
           {onInstall && (

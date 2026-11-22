@@ -1,6 +1,6 @@
 // 버전 변경 시 화면 캐시만 교체합니다. API·개인정보는 절대 캐시하지 않습니다.
 const CACHE_PREFIX = 'cheongyak-moa-shell-';
-const CACHE_NAME = CACHE_PREFIX + 'react-v0.3.0';
+const CACHE_NAME = CACHE_PREFIX + 'react-v0.3.1';
 const SHELL = [
   '/',
   '/app.js',
