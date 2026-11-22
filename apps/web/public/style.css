@@ -11,6 +11,8 @@
   font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
   color: var(--ink);
   font-synthesis: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   background: var(--paper);
   font-size: 14px;
 }
@@ -1282,7 +1284,8 @@ dialog::backdrop {
     right: 0;
   }
 }
-@media (max-width: 760px) {
+@media (max-width: 760px),
+  (max-width: 1000px) and (max-height: 520px) and (orientation: landscape) and (pointer: coarse) {
   .header {
     height: auto;
   }
@@ -1544,61 +1547,6 @@ dialog::backdrop {
     gap: 11px;
   }
 }
-@media (max-width: 420px) {
-  .cards {
-    grid-template-columns: 1fr;
-  }
-  .hero {
-    height: 280px;
-  }
-  .hero h1 {
-    font-size: 26px;
-  }
-  .hero-art svg {
-    width: 230px;
-    right: -35px;
-  }
-  .hero-description {
-    max-width: 200px;
-  }
-  .hero-art {
-    opacity: 0.7;
-  }
-  .filter-pills {
-    max-width: 265px;
-  }
-  .stat-label {
-    font-size: 8px;
-  }
-  .card h3 {
-    font-size: 16px;
-  }
-  .card {
-    padding: 18px;
-  }
-  .match-title,
-  .match-box p {
-    font-size: 10px;
-  }
-  .price-main {
-    font-size: 19px;
-  }
-  .card-bottom {
-    font-size: 10px;
-  }
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-  .source-actions {
-    flex-wrap: wrap;
-  }
-  .calendar-event {
-    font-size: 7px;
-  }
-  .calendar-day {
-    padding: 3px;
-  }
-}
 .preference-summary {
   font-size: 12px;
   font-weight: 600;
@@ -1667,9 +1615,11 @@ dialog::backdrop {
 
 .account-screen {
   min-height: 100vh;
+  min-height: 100svh;
   display: grid;
   place-items: center;
-  padding: 1.25rem;
+  padding-block: max(1.25rem, var(--safe-top)) max(1.25rem, var(--safe-bottom));
+  padding-inline: max(1.25rem, var(--safe-left)) max(1.25rem, var(--safe-right));
 }
 .account-card {
   width: min(100%, 25rem);
@@ -1689,8 +1639,14 @@ dialog::backdrop {
 .account-card input {
   width: 100%;
   min-height: 2.75rem;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font-size: 16px;
 }
 .account-card .primary {
+  min-height: 44px;
   margin-top: 0.6rem;
 }
 .account-card [role='alert'] {
